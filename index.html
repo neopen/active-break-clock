@@ -243,6 +243,11 @@
             to { opacity: 1; }
         }
 
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
         .lock-card {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(20px);
@@ -389,6 +394,96 @@
         .suggestion-icon {
             font-size: 24px;
         }
+
+        /* ========== 美化的自定义确认弹框 ========== */
+        .custom-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 20000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .custom-dialog {
+            background: white;
+            border-radius: 32px;
+            width: 320px;
+            max-width: 85%;
+            overflow: hidden;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .dialog-icon {
+            text-align: center;
+            padding: 32px 32px 16px 32px;
+            font-size: 56px;
+        }
+
+        .dialog-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: #1e293b;
+            padding: 0 24px 12px 24px;
+        }
+
+        .dialog-message {
+            text-align: center;
+            font-size: 16px;
+            color: #64748b;
+            padding: 0 24px 24px 24px;
+            line-height: 1.5;
+        }
+
+        .dialog-buttons {
+            display: flex;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .dialog-btn {
+            flex: 1;
+            text-align: center;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            background: white;
+        }
+
+        .dialog-btn:active {
+            background: #f1f5f9;
+        }
+
+        .dialog-btn-cancel {
+            color: #64748b;
+            border-right: 1px solid #e2e8f0;
+        }
+
+        .dialog-btn-confirm {
+            color: #ef4444;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -505,15 +600,57 @@
     const timerRing = document.getElementById('timerRing');
 
     // 全局状态
-    let isRunning = false;          // 闹铃是否运行中
-    let checkInterval = null;       // 主检查定时器
-    let nextReminderTimestamp = null; // 下次提醒时间戳
-    let currentLockEndTime = null;   // 锁屏结束时间戳
-    let lockTimerInterval = null;     // 锁屏倒计时定时器
-    let isLocked = false;             // 是否正在锁屏中
-    let progressCircle = null;        // 进度圆环元素
+    let isRunning = false;
+    let checkInterval = null;
+    let nextReminderTimestamp = null;
+    let currentLockEndTime = null;
+    let lockTimerInterval = null;
+    let isLocked = false;
+    let progressCircle = null;
 
-    // 保存配置到 localStorage
+    // 自定义确认弹框（替代原生 confirm）
+    function showConfirmDialog(options) {
+        return new Promise((resolve) => {
+            const { title, message, confirmText = '确定', cancelText = '取消', confirmColor = '#ef4444' } = options;
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'custom-dialog-overlay';
+            
+            const dialog = document.createElement('div');
+            dialog.className = 'custom-dialog';
+            
+            dialog.innerHTML = `
+                <div class="dialog-icon">⚠️</div>
+                <div class="dialog-title">${title}</div>
+                <div class="dialog-message">${message}</div>
+                <div class="dialog-buttons">
+                    <button class="dialog-btn dialog-btn-cancel">${cancelText}</button>
+                    <button class="dialog-btn dialog-btn-confirm" style="color: ${confirmColor}">${confirmText}</button>
+                </div>
+            `;
+            
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            
+            const cancelBtn = dialog.querySelector('.dialog-btn-cancel');
+            const confirmBtn = dialog.querySelector('.dialog-btn-confirm');
+            
+            const close = (result) => {
+                overlay.style.animation = 'fadeOut 0.2s ease';
+                setTimeout(() => {
+                    overlay.remove();
+                    resolve(result);
+                }, 200);
+            };
+            
+            cancelBtn.onclick = () => close(false);
+            confirmBtn.onclick = () => close(true);
+            
+            // 点击遮罩层不关闭，必须点击按钮
+        });
+    }
+
+    // 保存配置
     function saveConfig() {
         const config = {
             startTime: startTimeInput.value,
@@ -525,7 +662,6 @@
         localStorage.setItem('healthAlarmConfig', JSON.stringify(config));
     }
 
-    // 加载配置
     function loadConfig() {
         const saved = localStorage.getItem('healthAlarmConfig');
         if (saved) {
@@ -540,7 +676,6 @@
         }
     }
 
-    // 获取今天的某个时间点
     function getTodayTime(timeStr) {
         const [hours, minutes] = timeStr.split(':').map(Number);
         const now = new Date();
@@ -548,7 +683,6 @@
         return target;
     }
 
-    // 判断当前时间是否在时段内
     function isWithinPeriod(now) {
         const start = getTodayTime(startTimeInput.value);
         const end = getTodayTime(endTimeInput.value);
@@ -559,7 +693,6 @@
         return now >= start && now <= endAdjusted;
     }
 
-    // 计算下一次提醒时间
     function calculateNextReminder(now) {
         const start = getTodayTime(startTimeInput.value);
         const end = getTodayTime(endTimeInput.value);
@@ -588,7 +721,6 @@
         return candidate;
     }
 
-    // 更新下次提醒显示
     function updateNextReminderDisplay() {
         if (!isRunning || !nextReminderTimestamp) {
             nextReminderDiv.classList.add('hidden');
@@ -600,10 +732,8 @@
         nextReminderDiv.classList.remove('hidden');
     }
 
-    // 创建/更新进度圆环
     function updateProgressCircle(remainingSeconds, totalSeconds) {
         if (!progressCircle) {
-            // 创建进度圆环
             progressCircle = document.createElement('div');
             progressCircle.className = 'timer-circle-progress';
             timerRing.insertBefore(progressCircle, timerRing.querySelector('.timer-center'));
@@ -613,28 +743,33 @@
         progressCircle.style.background = `conic-gradient(from 0deg, #a78bfa 0deg, #a78bfa ${angle}deg, rgba(255, 255, 255, 0.1) ${angle}deg)`;
     }
 
-    // 关闭锁屏
+    // 关闭锁屏（带淡出动画）
     function closeLockScreen() {
         if (lockTimerInterval) {
             clearInterval(lockTimerInterval);
             lockTimerInterval = null;
         }
-        lockOverlay.classList.add('hidden');
-        isLocked = false;
-        currentLockEndTime = null;
         
-        // 关闭后重新调度下一次提醒
-        if (isRunning) {
-            const now = new Date();
-            const next = calculateNextReminder(now);
-            nextReminderTimestamp = next.getTime();
-            updateNextReminderDisplay();
-        }
+        // 添加淡出动画
+        lockOverlay.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => {
+            lockOverlay.classList.add('hidden');
+            lockOverlay.style.animation = '';
+            isLocked = false;
+            currentLockEndTime = null;
+            
+            // 关闭后重新调度下一次提醒
+            if (isRunning) {
+                const now = new Date();
+                const next = calculateNextReminder(now);
+                nextReminderTimestamp = next.getTime();
+                updateNextReminderDisplay();
+            }
+        }, 300);
     }
 
     // 显示锁屏弹框
     function showLockScreen(minutes, forceLock) {
-        // 防止重复弹框
         if (isLocked) return;
         
         isLocked = true;
@@ -642,12 +777,12 @@
         const endTime = Date.now() + (totalSeconds * 1000);
         currentLockEndTime = endTime;
         
-        // 重置进度圆环
         if (progressCircle) {
             progressCircle.style.background = 'conic-gradient(from 0deg, #a78bfa 0deg, #a78bfa 0deg, rgba(255, 255, 255, 0.1) 0deg)';
         }
         
         lockOverlay.classList.remove('hidden');
+        lockOverlay.style.animation = 'fadeIn 0.3s ease';
         
         if (lockTimerInterval) clearInterval(lockTimerInterval);
         
@@ -655,17 +790,13 @@
             const now = Date.now();
             const remaining = Math.max(0, Math.ceil((currentLockEndTime - now) / 1000));
             countdownSpan.innerText = remaining;
-            
-            // 更新进度圆环
             updateProgressCircle(remaining, totalSeconds);
             
             if (remaining <= 0) {
-                // 倒计时结束
+                // 倒计时结束，自动关闭弹框
                 clearInterval(lockTimerInterval);
                 lockTimerInterval = null;
-                unlockBtn.innerText = '✅ 开始活动';
-                unlockBtn.classList.remove('disabled');
-                unlockBtn.disabled = false;
+                closeLockScreen();
             } else {
                 unlockBtn.innerText = `⏳ 请活动 ${remaining} 秒`;
                 if (forceLock) {
@@ -682,7 +813,6 @@
         lockTimerInterval = setInterval(updateTimer, 100);
     }
 
-    // 触发提醒
     function triggerReminder() {
         if (!isRunning || isLocked) return;
         
@@ -692,26 +822,34 @@
         showLockScreen(lockMinutes, forceLock);
     }
 
-    // 解锁按钮点击处理
-    function onUnlock() {
+    // 解锁按钮点击处理（非强制模式下的提前结束）
+    async function onUnlock() {
         if (!isLocked) return;
         
         const now = Date.now();
         const forceLock = forceLockToggle.checked;
         
         if (currentLockEndTime && now >= currentLockEndTime) {
-            // 时间到了，正常解锁
-            closeLockScreen();
+            // 时间到了，正常解锁（但倒计时结束已经自动关闭了，这里做兜底）
+            if (isLocked) {
+                closeLockScreen();
+            }
         } else if (!forceLock) {
-            // 非强制模式，允许提前结束
-            if (confirm('活动时间还没到，确定要提前结束吗？记得起来活动一下哦！')) {
+            // 非强制模式，弹出美化的确认框
+            const confirmed = await showConfirmDialog({
+                title: '提前结束提醒',
+                message: '活动时间还没到，提前结束可能会影响健康习惯。\n确定要提前结束吗？',
+                confirmText: '提前结束',
+                cancelText: '继续活动',
+                confirmColor: '#f59e0b'
+            });
+            
+            if (confirmed) {
                 closeLockScreen();
             }
         }
-        // 强制模式下时间未到，按钮是禁用的，不会执行到这里
     }
 
-    // 主检查循环
     function checkAndRemind() {
         if (!isRunning) return;
         if (isLocked) return;
@@ -722,15 +860,13 @@
         }
     }
 
-    // 重新调度主循环
     function rescheduleMainLoop() {
         if (checkInterval) clearInterval(checkInterval);
         if (!isRunning) return;
         checkInterval = setInterval(checkAndRemind, 500);
     }
 
-    // 启动闹铃
-    function startAlarm() {
+    async function startAlarm() {
         if (isRunning) return;
         
         saveConfig();
@@ -745,7 +881,6 @@
         updateUI();
     }
 
-    // 停止闹铃
     function stopAlarm() {
         isRunning = false;
         
@@ -763,7 +898,6 @@
         nextReminderDiv.classList.add('hidden');
     }
 
-    // 更新UI状态
     function updateUI() {
         if (isRunning) {
             statusBadge.innerHTML = '🟢 闹铃运行中 · 将在时间段内自动提醒';
@@ -780,7 +914,6 @@
         }
     }
 
-    // 初始化进度圆环（不显示，只是创建）
     function initProgressCircle() {
         if (timerRing && !progressCircle) {
             progressCircle = document.createElement('div');
@@ -805,13 +938,10 @@
     loadConfig();
     updateUI();
     initProgressCircle();
-    
-    // 确保弹框初始是隐藏的
     lockOverlay.classList.add('hidden');
     isLocked = false;
     isRunning = false;
 
-    // 页面关闭提醒
     window.addEventListener('beforeunload', (e) => {
         if (isRunning) {
             e.preventDefault();
