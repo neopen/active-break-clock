@@ -85,6 +85,22 @@
       "purpose": "any"
     }
   ],
+  "screenshots": [
+    {
+      "src": "screenshots/screenshot-1.png",
+      "sizes": "424x811",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "主界面"
+    },
+    {
+      "src": "screenshots/screenshot-2.png",
+      "sizes": "436x815",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "锁屏提醒"
+    }
+  ],
   "prefer_related_applications": false,
   "shortcuts": [
     {

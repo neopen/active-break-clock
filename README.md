@@ -55,9 +55,13 @@
 
 ### 方式三：PWA 安装（推荐）
 
-1. 用 Chrome/Edge 打开网页
+1. 访问 [健康闹铃 - 拒绝久坐](https://clock.pengline.cn/)，用 Chrome/Edge 打开网页
+
 2. 点击地址栏右侧的「安装」图标
+
 3. 选择「安装」，即可像原生应用一样使用
+
+   <img src="./imgs/image-20260413221538624.png" alt="image-20260413221538624" style="zoom:50%;" />
 
 ## 📋 使用说明
 
