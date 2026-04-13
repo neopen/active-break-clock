@@ -1,0 +1,535 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.app-container {
+    max-width: 500px;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 40px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.status-bar {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px 24px 12px;
+    color: white;
+}
+
+.status-bar h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.status-bar p {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.content {
+    padding: 24px;
+}
+
+.card {
+    background: #f8fafc;
+    border-radius: 24px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #e2e8f0;
+}
+
+.card-title {
+    font-weight: 600;
+    font-size: 18px;
+    color: #1e293b;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.time-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.time-input {
+    flex: 1;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 12px 16px;
+    font-size: 16px;
+    font-family: monospace;
+    font-weight: 500;
+}
+
+.time-input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+/* 统一的两列设置行样式 */
+.settings-row {
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+}
+
+.settings-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f1f5f9;
+    padding: 10px 20px;
+    border-radius: 20px;
+    min-width: 140px;
+}
+
+.settings-icon {
+    font-size: 16px;
+    opacity: 0.7;
+}
+
+.settings-item span:not(.settings-icon) {
+    font-size: 14px;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.settings-input {
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    padding: 10px 8px;
+    font-size: 15px;
+    width: 70px;
+    text-align: center;
+}
+
+.settings-input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+.settings-input[type="number"]::-webkit-inner-spin-button,
+.settings-input[type="number"]::-webkit-outer-spin-button {
+    opacity: 0.5;
+}
+
+.settings-item .toggle-switch {
+    margin-left: auto;
+}
+
+.input-error {
+    border-color: #ef4444 !important;
+    background-color: #fef2f2 !important;
+}
+
+.error-hint {
+    font-size: 12px;
+    color: #ef4444;
+    margin-top: 8px;
+    margin-left: 12px;
+}
+
+.warning-note {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cbd5e1;
+    transition: 0.3s;
+    border-radius: 26px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #667eea;
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
+.btn {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 40px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:active {
+    transform: scale(0.97);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+    margin-top: 12px;
+}
+
+.status-badge {
+    background: #e2e8f0;
+    border-radius: 40px;
+    padding: 8px 16px;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.status-active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-inactive {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.next-reminder {
+    background: #ede9fe;
+    border-radius: 20px;
+    padding: 12px;
+    text-align: center;
+    font-size: 14px;
+    color: #5b21b6;
+    margin-top: 16px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ========== 锁屏弹框 ========== */
+.lock-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.lock-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border-radius: 56px;
+    padding: 48px 32px;
+    margin: 20px;
+    width: calc(100% - 40px);
+    max-width: 380px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.lock-icon {
+    font-size: 72px;
+    margin-bottom: 16px;
+    animation: bounce 1s ease infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.lock-title {
+    font-size: 32px;
+    font-weight: 800;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.lock-message {
+    font-size: 18px;
+    margin-bottom: 32px;
+    opacity: 0.9;
+    line-height: 1.5;
+}
+
+.timer-ring {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 32px;
+}
+
+.timer-circle-bg {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.timer-circle-progress {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: rotate(-90deg);
+}
+
+.timer-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    width: 100%;
+}
+
+.timer-number {
+    font-size: 52px;
+    font-weight: 800;
+    font-family: monospace;
+    background: linear-gradient(135deg, #fff 0%, #c4b5fd 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.timer-unit {
+    font-size: 16px;
+    margin-left: 4px;
+    opacity: 0.7;
+}
+
+.timer-label {
+    font-size: 12px;
+    opacity: 0.5;
+    margin-top: 4px;
+}
+
+.action-btn {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    border: none;
+    padding: 16px 32px;
+    border-radius: 60px;
+    font-size: 18px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+}
+
+.action-btn:active {
+    transform: scale(0.97);
+}
+
+.action-btn.disabled {
+    background: linear-gradient(135deg, #475569 0%, #334155 100%);
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.action-btn.disabled:active {
+    transform: none;
+}
+
+.reminder-suggestion {
+    margin-top: 24px;
+    font-size: 14px;
+    opacity: 0.6;
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+.suggestion-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.suggestion-icon {
+    font-size: 24px;
+}
+
+/* ========== 自定义确认弹框 ========== */
+.custom-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 20000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.2s ease;
+}
+
+.custom-dialog {
+    background: white;
+    border-radius: 32px;
+    width: 320px;
+    max-width: 85%;
+    overflow: hidden;
+    animation: slideUp 0.3s ease;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dialog-icon {
+    text-align: center;
+    padding: 32px 32px 16px 32px;
+    font-size: 56px;
+}
+
+.dialog-title {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    padding: 0 24px 12px 24px;
+}
+
+.dialog-message {
+    text-align: center;
+    font-size: 16px;
+    color: #64748b;
+    padding: 0 24px 24px 24px;
+    line-height: 1.5;
+}
+
+.dialog-buttons {
+    display: flex;
+    border-top: 1px solid #e2e8f0;
+}
+
+.dialog-btn {
+    flex: 1;
+    text-align: center;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    background: white;
+}
+
+.dialog-btn:active {
+    background: #f1f5f9;
+}
+
+.dialog-btn-cancel {
+    color: #64748b;
+    border-right: 1px solid #e2e8f0;
+}
+
+.dialog-btn-confirm {
+    color: #ef4444;
+    font-weight: 700;
+}
