@@ -37,6 +37,13 @@ const ReminderModule = (function () {
         onLockClose = callbacks.onLockClose;
     }
 
+    function getCallbacks() {
+        return {
+            onReminderTrigger,
+            onLockClose
+        };
+    }
+
     function isReminderRunning() { return isRunning; }
     function isCurrentlyLocked() { return isLocked; }
     function getNextReminderTime() { return nextReminderTimestamp; }
@@ -149,11 +156,13 @@ const ReminderModule = (function () {
                 lockOverlay.classList.add('hidden');
                 lockOverlay.style.animation = '';
                 isLocked = false;
+                isCreatingLock = false;
                 currentLockEndTime = null;
                 if (onLockClose) onLockClose();
             }, 300);
         } else {
             isLocked = false;
+            isCreatingLock = false;
             currentLockEndTime = null;
             if (onLockClose) onLockClose();
         }
@@ -185,34 +194,23 @@ const ReminderModule = (function () {
             try {
                 const { ipcRenderer } = window.require('electron');
 
+                console.log('[REMINDER] Setting isLocked to true');
                 isLocked = true;
                 // 传递秒数给主进程
                 console.log('[REMINDER] Sending show-lock to main process, durationSeconds:', totalSeconds, 'forceLock:', forceLock);
                 ipcRenderer.send('show-lock', totalSeconds, forceLock);
 
-                // 监听锁屏完成（只监听一次）
-                const onCompleteHandler = () => {
-                    console.log('[REMINDER] Lock complete event received');
-                    isLocked = false;
-                    isCreatingLock = false;
-                    pendingLock = false;  // 添加这行：重置 pendingLock
-                    // 确保声音停止
-                    if (AudioModule) {
-                        AudioModule.stopContinuous();
-                    }
-                    if (onComplete) onComplete();
-                    try {
-                        ipcRenderer.removeListener('lock-complete', onCompleteHandler);
-                        ipcRenderer.removeListener('hide-lock', onCompleteHandler);
-                    } catch (e) { }
-                };
-
-                ipcRenderer.once('lock-complete', onCompleteHandler);
-                ipcRenderer.once('hide-lock', onCompleteHandler);
+                // 注意：在 Electron 环境中，我们不在这里监听事件
+                // 而是在 app.js 中通过 ipcRenderer.on('lock-closed') 来处理
+                // 因为 lock-complete 事件是从 lock.html 发送的，不同窗口间无法直接通信
+                console.log('[REMINDER] Electron environment: lock-closed event will be handled in app.js');
                 return;
             } catch (e) {
                 console.error('[REMINDER] Failed to send show-lock:', e);
+                console.log('[REMINDER] Resetting states after error: isLocked=false, isCreatingLock=false, pendingLock=false');
+                isLocked = false;
                 isCreatingLock = false;
+                pendingLock = false;
             }
         }
 
@@ -306,6 +304,7 @@ const ReminderModule = (function () {
         // 触发提醒回调（记录统计、发送通知）
         if (onReminderTrigger) onReminderTrigger();
 
+        console.log('[REMINDER] Setting pendingLock to true');
         pendingLock = true;
 
         // 先播放声音，再显示锁屏
@@ -317,7 +316,10 @@ const ReminderModule = (function () {
 
         showLockScreen(lockMins, forceLock, () => {
             console.log('[REMINDER] Lock screen completed callback');
+            console.log('[REMINDER] Resetting states: isLocked=false, pendingLock=false, isCreatingLock=false');
+            isLocked = false;
             pendingLock = false;
+            isCreatingLock = false;
             // 确保声音停止（二次保险）
             if (AudioModule) {
                 AudioModule.stopContinuous();
@@ -331,6 +333,8 @@ const ReminderModule = (function () {
         isRunning = true;
         pendingLock = false;
         isLocked = false;
+        isCreatingLock = false;
+        console.log('[REMINDER] Start state:', { isRunning, pendingLock, isLocked, isCreatingLock });
     }
 
     function stop() {
@@ -359,6 +363,7 @@ const ReminderModule = (function () {
             }
             isLocked = false;
             pendingLock = false;
+            isCreatingLock = false;
         }
 
         nextReminderTimestamp = null;
@@ -397,17 +402,44 @@ const ReminderModule = (function () {
         closeLockScreen();
     }
 
+    function resetLockStates() {
+        console.log('[REMINDER] resetLockStates called');
+        isLocked = false;
+        pendingLock = false;
+        isCreatingLock = false;
+        console.log('[REMINDER] Lock states reset:', { isLocked, pendingLock, isCreatingLock });
+    }
+
     // 主检查循环
     function checkAndRemind() {
-        if (!isRunning) return;
-        if (isLocked) return;
-        if (pendingLock) return;
+        console.log('[REMINDER] Check loop running...');
+        console.log('[REMINDER] Current state:', { isRunning, isLocked, pendingLock, nextReminderTimestamp: nextReminderTimestamp ? new Date(nextReminderTimestamp) : null });
+        
+        if (!isRunning) {
+            console.log('[REMINDER] Check skipped: not running');
+            return;
+        }
+        if (isLocked) {
+            console.log('[REMINDER] Check skipped: locked');
+            return;
+        }
+        if (pendingLock) {
+            console.log('[REMINDER] Check skipped: pending lock');
+            return;
+        }
 
         const now = Date.now();
+        console.log('[REMINDER] Now:', new Date(now));
+        if (nextReminderTimestamp) {
+            console.log('[REMINDER] Next reminder:', new Date(nextReminderTimestamp));
+            console.log('[REMINDER] Time difference:', (nextReminderTimestamp - now) / 1000, 'seconds');
+        }
+        
         if (nextReminderTimestamp && now >= nextReminderTimestamp) {
             console.log('[REMINDER] Time to remind!');
             if (ConfigModule) {
                 const config = ConfigModule.load();
+                console.log('[REMINDER] Config loaded:', config);
                 trigger(config);
             } else {
                 console.error('[REMINDER] ConfigModule not available');
@@ -418,15 +450,26 @@ const ReminderModule = (function () {
 
     // 启动检查循环
     function startCheckLoop() {
-        if (mainIntervalId) clearInterval(mainIntervalId);
-        if (!isRunning) return;
+        console.log('[REMINDER] startCheckLoop called, isRunning:', isRunning);
+        if (mainIntervalId) {
+            console.log('[REMINDER] Clearing existing interval:', mainIntervalId);
+            clearInterval(mainIntervalId);
+            mainIntervalId = null;
+        }
+        if (!isRunning) {
+            console.log('[REMINDER] Not running, skipping startCheckLoop');
+            return;
+        }
+        console.log('[REMINDER] Starting new check loop');
         mainIntervalId = setInterval(() => checkAndRemind(), 500);
+        console.log('[REMINDER] Check loop started, intervalId:', mainIntervalId);
     }
 
     return {
         setModules,
         setElements,
         setCallbacks,
+        getCallbacks,
         isReminderRunning,
         isCurrentlyLocked,
         getNextReminderTime,
@@ -438,6 +481,7 @@ const ReminderModule = (function () {
         setMainInterval,
         clearMainInterval,
         startCheckLoop,
+        resetLockStates,
         unlock,
         closeLockScreen: manualCloseLockScreen,
         checkAndRemind

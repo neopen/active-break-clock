@@ -159,6 +159,13 @@ function forceCloseLockWindow() {
     }
 
     isLockWindowClosing = false;
+    
+    // 通知主窗口锁屏关闭，触发 onLockClose 回调
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log('[MAIN] Notifying main window that lock is closed (force close)');
+        mainWindow.webContents.send('lock-closed');
+    }
+    
     restoreMainWindow();
 }
 
@@ -186,10 +193,19 @@ function closeLockWindow() {
         lockTimer = null;
     }
 
+    // 先恢复主窗口
+    restoreMainWindow();
+
     // 通知主窗口停止声音
     if (mainWindow && !mainWindow.isDestroyed()) {
         console.log('[MAIN] Notifying main window to stop sound');
         mainWindow.webContents.send('stop-sound');
+    }
+
+    // 通知主窗口锁屏关闭，触发 onLockClose 回调
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log('[MAIN] Notifying main window that lock is closed');
+        mainWindow.webContents.send('lock-closed');
     }
 
     // 直接使用 destroy 方法强制关闭全屏窗口
@@ -199,7 +215,6 @@ function closeLockWindow() {
         console.error('[MAIN] Error destroying lock window:', e);
         lockWindow = null;
         isLockWindowClosing = false;
-        restoreMainWindow();
     }
 }
 

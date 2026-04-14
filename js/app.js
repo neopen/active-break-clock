@@ -157,10 +157,20 @@
             // 锁屏关闭后，重新调度下一次提醒
             if (ReminderModule.isReminderRunning()) {
                 const now = new Date();
+                console.log('[APP] Current time:', now);
                 const config = Config.load();
+                console.log('[APP] Config:', config);
                 const next = ReminderModule.calculateNextReminder(now, config);
+                console.log('[APP] Calculated next reminder:', next);
                 ReminderModule.setNextReminderTime(next.getTime());
+                console.log('[APP] Next reminder timestamp set to:', next.getTime());
                 UIModule.updateNextReminderDisplay(next.getTime());
+                console.log('[APP] Next reminder updated to:', next, 'timestamp:', next.getTime());
+                // 确保检查循环正在运行
+                ReminderModule.startCheckLoop();
+                console.log('[APP] Check loop restarted');
+            } else {
+                console.log('[APP] Reminder not running, skip updating next reminder');
             }
             // 确保声音停止（二次保险）
             AudioModule.stopContinuous();
@@ -547,6 +557,34 @@
             const { ipcRenderer } = window.require('electron');
             ipcRenderer.on('stop-sound', () => {
                 console.log('[APP] Received stop-sound from main process');
+                AudioModule.stopContinuous();
+            });
+            ipcRenderer.on('lock-closed', () => {
+                console.log('[APP] Received lock-closed from main process');
+                // 重置锁相关的状态标志
+                console.log('[APP] Resetting lock states');
+                ReminderModule.resetLockStates();
+                
+                // 计算并更新下次提醒时间
+                if (ReminderModule.isReminderRunning()) {
+                    const now = new Date();
+                    console.log('[APP] Current time:', now);
+                    const config = Config.load();
+                    console.log('[APP] Config:', config);
+                    const next = ReminderModule.calculateNextReminder(now, config);
+                    console.log('[APP] Calculated next reminder:', next);
+                    ReminderModule.setNextReminderTime(next.getTime());
+                    console.log('[APP] Next reminder timestamp set to:', next.getTime());
+                    UIModule.updateNextReminderDisplay(next.getTime());
+                    console.log('[APP] Next reminder updated to:', next, 'timestamp:', next.getTime());
+                }
+                
+                // 确保检查循环正在运行
+                console.log('[APP] Restarting check loop');
+                ReminderModule.startCheckLoop();
+                
+                // 确保声音停止
+                console.log('[APP] Stopping audio');
                 AudioModule.stopContinuous();
             });
         } catch (e) {
