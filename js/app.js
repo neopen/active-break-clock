@@ -499,7 +499,7 @@
                 // 在锁屏弹框内部创建确认弹框
                 showConfirmDialogInsideLock({
                     title: '提前结束提醒',
-                    message: '活动时间还没到，提前结束可能会影响健康习惯。\n确定要提前结束吗？',
+                    message: '活动时间还没到，提前结束可能会影响健康习惯。<br>确定要提前结束吗？',
                     confirmText: '提前结束',
                     cancelText: '继续活动',
                     confirmColor: '#f59e0b'
@@ -515,7 +515,7 @@
                 // 降级方案：使用普通弹框
                 const confirmed = await showConfirmDialog({
                     title: '提前结束提醒',
-                    message: '活动时间还没到，提前结束可能会影响健康习惯。\n确定要提前结束吗？',
+                    message: '活动时间还没到，提前结束可能会影响健康习惯。<br>确定要提前结束吗？',
                     confirmText: '提前结束',
                     cancelText: '继续活动',
                     confirmColor: '#f59e0b'
