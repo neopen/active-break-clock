@@ -314,24 +314,35 @@
     // 解锁处理
     async function onUnlock() {
         console.log('onUnlock called');
-        if (!ReminderModule.isCurrentlyLocked()) return;
+        if (!ReminderModule.isCurrentlyLocked()) {
+            console.log('Not locked, returning');
+            return;
+        }
 
         const forceLock = Config.get('forceLock');
-        const unlocked = ReminderModule.unlock(forceLock);
+        console.log('forceLock:', forceLock);
+        
+        // 如果是强制锁定，不允许提前解锁
+        if (forceLock) {
+            console.log('Force lock enabled, cannot unlock early');
+            return;
+        }
+        
+        // 非强制锁定，显示确认对话框
+        console.log('Showing confirm dialog');
+        const confirmed = await showConfirmDialog({
+            title: '提前结束提醒',
+            message: '活动时间还没到，提前结束可能会影响健康习惯。\n确定要提前结束吗？',
+            confirmText: '提前结束',
+            cancelText: '继续活动',
+            confirmColor: '#f59e0b'
+        });
+        console.log('confirmed:', confirmed);
 
-        if (!unlocked && !forceLock) {
-            const confirmed = await showConfirmDialog({
-                title: '提前结束提醒',
-                message: '活动时间还没到，提前结束可能会影响健康习惯。\n确定要提前结束吗？',
-                confirmText: '提前结束',
-                cancelText: '继续活动',
-                confirmColor: '#f59e0b'
-            });
-
-            if (confirmed) {
-                ReminderModule.closeLockScreen();
-                AudioModule.stopContinuous();
-            }
+        if (confirmed) {
+            console.log('Closing lock screen');
+            ReminderModule.closeLockScreen();
+            AudioModule.stopContinuous();
         }
     }
 

@@ -77,7 +77,7 @@ function createLockWindow(durationSeconds, forceLock) {
     // 在 body 开始处注入脚本，确保在其他脚本之前执行
     htmlContent = htmlContent.replace('<body>', `<body>${paramScript}`);
 
-    const tempHtmlPath = path.join(__dirname, './temp/lock_temp.html');
+    const tempHtmlPath = path.join(__dirname, 'lock_temp.html');
     fs.writeFileSync(tempHtmlPath, htmlContent, 'utf8');
 
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -104,7 +104,7 @@ function createLockWindow(durationSeconds, forceLock) {
         }
     });
 
-    lockWindow.loadFile('./temp/lock_temp.html');
+    lockWindow.loadFile('lock_temp.html');
 
     // 确保窗口始终在最前
     lockWindow.setAlwaysOnTop(true, 'screen-saver');

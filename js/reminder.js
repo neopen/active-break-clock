@@ -156,12 +156,14 @@ const ReminderModule = (function () {
                 lockOverlay.classList.add('hidden');
                 lockOverlay.style.animation = '';
                 isLocked = false;
+                pendingLock = false;
                 isCreatingLock = false;
                 currentLockEndTime = null;
                 if (onLockClose) onLockClose();
             }, 300);
         } else {
             isLocked = false;
+            pendingLock = false;
             isCreatingLock = false;
             currentLockEndTime = null;
             if (onLockClose) onLockClose();
@@ -304,7 +306,6 @@ const ReminderModule = (function () {
         // 触发提醒回调（记录统计、发送通知）
         if (onReminderTrigger) onReminderTrigger();
 
-        console.log('[REMINDER] Setting pendingLock to true');
         pendingLock = true;
 
         // 先播放声音，再显示锁屏
@@ -316,7 +317,6 @@ const ReminderModule = (function () {
 
         showLockScreen(lockMins, forceLock, () => {
             console.log('[REMINDER] Lock screen completed callback');
-            console.log('[REMINDER] Resetting states: isLocked=false, pendingLock=false, isCreatingLock=false');
             isLocked = false;
             pendingLock = false;
             isCreatingLock = false;
@@ -413,9 +413,6 @@ const ReminderModule = (function () {
 
     // 主检查循环
     function checkAndRemind() {
-        console.log('[REMINDER] Check loop running...');
-        console.log('[REMINDER] Current state:', { isRunning, isLocked, pendingLock, nextReminderTimestamp: nextReminderTimestamp ? new Date(nextReminderTimestamp) : null });
-        
         if (!isRunning) {
             console.log('[REMINDER] Check skipped: not running');
             return;
@@ -430,17 +427,14 @@ const ReminderModule = (function () {
         }
 
         const now = Date.now();
-        console.log('[REMINDER] Now:', new Date(now));
-        if (nextReminderTimestamp) {
-            console.log('[REMINDER] Next reminder:', new Date(nextReminderTimestamp));
-            console.log('[REMINDER] Time difference:', (nextReminderTimestamp - now) / 1000, 'seconds');
-        }
+        // if (nextReminderTimestamp) {
+        //     console.log('[REMINDER] Time difference:', (nextReminderTimestamp - now) / 1000, 'seconds');
+        // }
         
         if (nextReminderTimestamp && now >= nextReminderTimestamp) {
             console.log('[REMINDER] Time to remind!');
             if (ConfigModule) {
                 const config = ConfigModule.load();
-                console.log('[REMINDER] Config loaded:', config);
                 trigger(config);
             } else {
                 console.error('[REMINDER] ConfigModule not available');
@@ -451,7 +445,6 @@ const ReminderModule = (function () {
 
     // 启动检查循环
     function startCheckLoop() {
-        console.log('[REMINDER] startCheckLoop called, isRunning:', isRunning);
         if (mainIntervalId) {
             console.log('[REMINDER] Clearing existing interval:', mainIntervalId);
             clearInterval(mainIntervalId);
@@ -461,9 +454,7 @@ const ReminderModule = (function () {
             console.log('[REMINDER] Not running, skipping startCheckLoop');
             return;
         }
-        console.log('[REMINDER] Starting new check loop');
         mainIntervalId = setInterval(() => checkAndRemind(), 500);
-        console.log('[REMINDER] Check loop started, intervalId:', mainIntervalId);
     }
 
     return {
