@@ -11,9 +11,19 @@ const ReminderModule = (function () {
     let countdownSpan = null;
     let unlockBtn = null;
     let lockOverlay = null;
+    let pendingLock = false;
 
     let onReminderTrigger = null;
     let onLockClose = null;
+
+    // 模块引用（将在初始化时注入）
+    let ConfigModule = null;
+    let AudioModule = null;
+
+    function setModules(config, audio) {
+        ConfigModule = config;
+        AudioModule = audio;
+    }
 
     function setElements(elements) {
         timerRing = elements.timerRing;
@@ -107,11 +117,15 @@ const ReminderModule = (function () {
 
     function closeLockScreen() {
         console.log('closeLockScreen called');
+
+        // 检测是否在 Electron 环境中
         if (typeof window !== 'undefined' && window.require) {
-            const { ipcRenderer } = window.require('electron');
-            ipcRenderer.send('hide-lock');
-            if (mainWindow) {
-                mainWindow.setEnabled(true);
+            try {
+                const { ipcRenderer } = window.require('electron');
+                console.log('[REMINDER] Sending hide-lock to main process');
+                ipcRenderer.send('hide-lock');
+            } catch (e) {
+                console.error('[REMINDER] Failed to send hide-lock:', e);
             }
         }
 
@@ -132,40 +146,68 @@ const ReminderModule = (function () {
                 currentLockEndTime = null;
                 if (onLockClose) onLockClose();
             }, 300);
+        } else {
+            isLocked = false;
+            currentLockEndTime = null;
+            if (onLockClose) onLockClose();
         }
     }
 
+    let isCreatingLock = false;
+
     function showLockScreen(minutes, forceLock, onComplete) {
-        if (isLocked) return;
+        console.log('showLockScreen called, minutes:', minutes, 'isLocked:', isLocked, 'isCreatingLock:', isCreatingLock);
 
-        // 检测是否在 Electron 环境中
-        if (typeof window !== 'undefined' && window.require) {
-            const { ipcRenderer } = window.require('electron');
-
-            isLocked = true;
-
-            // 通知主进程创建锁屏窗口，传递强制锁屏参数
-            ipcRenderer.send('show-lock', minutes, forceLock);
-
-            // 保存完成回调，等锁屏结束后调用
-            window._lockCompleteCallback = () => {
-                isLocked = false;
-                if (onComplete) onComplete();
-            };
-
-            // 监听锁屏完成事件
-            ipcRenderer.once('lock-complete', () => {
-                if (window._lockCompleteCallback) {
-                    window._lockCompleteCallback();
-                    delete window._lockCompleteCallback;
-                }
-            });
-
+        if (isLocked) {
+            console.log('Already locked, skip');
             return;
         }
 
-        isLocked = true;
+        if (isCreatingLock) {
+            console.log('Already creating lock, skip');
+            return;
+        }
+
+        isCreatingLock = true;
+
+        // 将分钟转换为秒
         const totalSeconds = minutes * 60;
+        console.log('[REMINDER] Converting', minutes, 'minutes to', totalSeconds, 'seconds');
+
+        // 检测是否在 Electron 环境中
+        if (typeof window !== 'undefined' && window.require) {
+            try {
+                const { ipcRenderer } = window.require('electron');
+
+                isLocked = true;
+                // 传递秒数给主进程
+                console.log('[REMINDER] Sending show-lock to main process, durationSeconds:', totalSeconds, 'forceLock:', forceLock);
+                ipcRenderer.send('show-lock', totalSeconds, forceLock);
+
+                // 监听锁屏完成（只监听一次）
+                const onCompleteHandler = () => {
+                    console.log('[REMINDER] Lock complete event received');
+                    isLocked = false;
+                    isCreatingLock = false;
+                    if (onComplete) onComplete();
+                    try {
+                        ipcRenderer.removeListener('lock-complete', onCompleteHandler);
+                        ipcRenderer.removeListener('hide-lock', onCompleteHandler);
+                    } catch (e) { }
+                };
+
+                ipcRenderer.once('lock-complete', onCompleteHandler);
+                ipcRenderer.once('hide-lock', onCompleteHandler);
+                return;
+            } catch (e) {
+                console.error('[REMINDER] Failed to send show-lock:', e);
+                isCreatingLock = false;
+            }
+        }
+
+        // 非 Electron 环境的处理
+        isLocked = true;
+        isCreatingLock = false;
         const endTime = Date.now() + (totalSeconds * 1000);
         currentLockEndTime = endTime;
 
@@ -216,30 +258,65 @@ const ReminderModule = (function () {
         lockTimerInterval = setInterval(updateTimer, 100);
     }
 
-    function trigger(config, audioModule) {
-        if (!isRunning || isLocked) return;
+    function trigger(config) {
+        console.log('[REMINDER] trigger called, isRunning:', isRunning, 'isLocked:', isLocked, 'pendingLock:', pendingLock);
+        console.log('[REMINDER] config received:', config);
 
-        const lockMins = Math.min(30, Math.max(1, config.lockMinutes || 5));
+        if (!isRunning) {
+            console.log('[REMINDER] Not running, skip trigger');
+            return;
+        }
+        if (isLocked) {
+            console.log('[REMINDER] Already locked, skip trigger');
+            return;
+        }
+        if (pendingLock) {
+            console.log('[REMINDER] Pending lock, skip trigger');
+            return;
+        }
 
-        if (config.soundEnabled && audioModule) {
-            audioModule.playAlert();
-            audioModule.startContinuous();
+        // 修复：正确获取 lockMinutes
+        let lockMins = 5; // 默认值
+        if (config && config.lockMinutes) {
+            lockMins = parseInt(config.lockMinutes);
+        } else if (ConfigModule) {
+            const currentConfig = ConfigModule.load();
+            lockMins = currentConfig.lockMinutes || 5;
+        }
+
+        lockMins = Math.min(30, Math.max(1, lockMins));
+
+        const forceLock = (config && config.forceLock) || false;
+        const soundEnabled = (config && config.soundEnabled) !== undefined ? config.soundEnabled : true;
+
+        console.log('[REMINDER] Triggering lock screen with duration:', lockMins, 'forceLock:', forceLock, 'soundEnabled:', soundEnabled);
+
+        if (soundEnabled && AudioModule) {
+            AudioModule.playAlert();
+            AudioModule.startContinuous();
         }
 
         if (onReminderTrigger) onReminderTrigger();
 
-        showLockScreen(lockMins, config.forceLock || false, () => {
-            if (audioModule) audioModule.stopContinuous();
+        pendingLock = true;
+
+        showLockScreen(lockMins, forceLock, () => {
+            console.log('[REMINDER] Lock screen completed callback');
+            pendingLock = false;
+            if (AudioModule) AudioModule.stopContinuous();
+            if (onLockClose) onLockClose();
         });
     }
 
     function start() {
         console.log('ReminderModule.start called');
         isRunning = true;
+        pendingLock = false;
+        isLocked = false;
     }
 
-    function stop(audioModule) {
-        console.log('ReminderModule.stop called');
+    function stop() {
+        console.log('[REMINDER] stop called, isRunning:', isRunning, 'isLocked:', isLocked);
         isRunning = false;
 
         if (checkInterval) {
@@ -248,17 +325,36 @@ const ReminderModule = (function () {
         }
 
         if (isLocked) {
-            closeLockScreen();
-            if (audioModule) audioModule.stopContinuous();
+            console.log('[REMINDER] Lock active, sending hide-lock');
+            if (typeof window !== 'undefined' && window.require) {
+                try {
+                    const { ipcRenderer } = window.require('electron');
+                    ipcRenderer.send('hide-lock');
+                } catch (e) {
+                    console.error('[REMINDER] Failed to send hide-lock:', e);
+                }
+            }
+            if (AudioModule) AudioModule.stopContinuous();
+            isLocked = false;
+            pendingLock = false;
         }
 
         nextReminderTimestamp = null;
     }
 
+    let mainIntervalId = null;
+
     function setMainInterval(fn, interval) {
-        if (checkInterval) clearInterval(checkInterval);
+        if (mainIntervalId) clearInterval(mainIntervalId);
         if (!isRunning) return;
-        checkInterval = setInterval(fn, interval);
+        mainIntervalId = setInterval(fn, interval);
+    }
+
+    function clearMainInterval() {
+        if (mainIntervalId) {
+            clearInterval(mainIntervalId);
+            mainIntervalId = null;
+        }
     }
 
     function unlock(forceLock) {
@@ -279,7 +375,34 @@ const ReminderModule = (function () {
         closeLockScreen();
     }
 
+    // 主检查循环
+    function checkAndRemind() {
+        if (!isRunning) return;
+        if (isLocked) return;
+        if (pendingLock) return;
+
+        const now = Date.now();
+        if (nextReminderTimestamp && now >= nextReminderTimestamp) {
+            console.log('[REMINDER] Time to remind!');
+            if (ConfigModule) {
+                const config = ConfigModule.load();
+                trigger(config);
+            } else {
+                console.error('[REMINDER] ConfigModule not available');
+                trigger({ lockMinutes: 5, forceLock: false, soundEnabled: true });
+            }
+        }
+    }
+
+    // 启动检查循环
+    function startCheckLoop() {
+        if (mainIntervalId) clearInterval(mainIntervalId);
+        if (!isRunning) return;
+        mainIntervalId = setInterval(() => checkAndRemind(), 500);
+    }
+
     return {
+        setModules,
         setElements,
         setCallbacks,
         isReminderRunning,
@@ -291,7 +414,10 @@ const ReminderModule = (function () {
         start,
         stop,
         setMainInterval,
+        clearMainInterval,
+        startCheckLoop,
         unlock,
-        closeLockScreen: manualCloseLockScreen
+        closeLockScreen: manualCloseLockScreen,
+        checkAndRemind
     };
 })();

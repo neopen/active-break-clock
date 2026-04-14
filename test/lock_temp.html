@@ -289,6 +289,15 @@
 </head>
 
 <body>
+    <script>
+        // 注入参数 - duration 单位是秒
+        window.__LOCK_PARAMS__ = {
+            duration: 60,
+            forceLock: false
+        };
+        console.log('[LOCK] Injected params - duration:', 60, 'seconds, forceLock:', false);
+    </script>
+    
     <div class="lock-card">
         <div class="lock-icon">🧘</div>
         <div class="lock-title">该活动啦！</div>
@@ -390,7 +399,7 @@
             console.log('Params from URL:', { duration: remainingSeconds, forceLock });
         }
 
-        // console.log('Lock screen initialized: duration=', remainingSeconds, 'forceLock=', forceLock);
+        console.log('Lock screen initialized: duration=', remainingSeconds, 'forceLock=', forceLock);
 
         // 确保 remainingSeconds 是有效数字且大于0
         if (isNaN(remainingSeconds) || remainingSeconds <= 0) {

@@ -138,17 +138,22 @@
     });
     UIModule.setElements(elements);
 
+    // 注入 Config 和 AudioModule 到 ReminderModule
+    ReminderModule.setModules(Config, AudioModule);
+
     // 设置回调
     ReminderModule.setCallbacks({
         onReminderTrigger: async () => {
-            console.log('Reminder triggered');
+            // 记录活动统计
             StatsModule.recordActivity();
+
+            // 发送桌面通知
             if (Config.get('notificationEnabled')) {
                 await NotificationModule.sendReminder();
             }
         },
         onLockClose: () => {
-            console.log('Lock screen closed');
+            // 锁屏关闭后，重新调度下一次提醒
             if (ReminderModule.isReminderRunning()) {
                 const now = new Date();
                 const config = Config.load();
@@ -236,10 +241,9 @@
 
     // 启动闹铃
     async function startAlarm() {
-        console.log('startAlarm called - step 1');
+        console.log('startAlarm called');
 
         if (!validateAndShowErrors()) {
-            console.log('Validation failed');
             await showConfirmDialog({
                 title: '配置无效',
                 message: '请先修正上面的错误设置后再启动闹铃。',
@@ -250,79 +254,35 @@
             return;
         }
 
-        console.log('startAlarm - step 2: validation passed');
-
         if (ReminderModule.isReminderRunning()) {
             console.log('Already running');
             return;
         }
 
-        console.log('startAlarm - step 3: initializing audio');
+        // 初始化音频和通知
+        await AudioModule.resume();
+        await NotificationModule.init();
 
-        try {
-            await AudioModule.resume();
-            console.log('Audio resumed');
-        } catch (e) { console.warn('Audio error:', e); }
+        Config.save();
 
-        console.log('startAlarm - step 4: initializing notification (non-blocking)');
-        NotificationModule.initWithoutWait();
-
-        console.log('startAlarm - step 5: saving config');
-
-        let config;
-        try {
-            config = Config.save();
-            console.log('Config saved:', config);
-        } catch (e) {
-            console.error('Config save error:', e);
-            return;
-        }
-
-        console.log('startAlarm - step 6: getting current time');
         const now = new Date();
-        console.log('Current time:', now);
+        const config = Config.load();
+        console.log('Config loaded for start:', config);
 
-        console.log('startAlarm - step 7: calculating next reminder');
-
-        let next;
-        try {
-            next = ReminderModule.calculateNextReminder(now, config);
-            console.log('Next reminder:', next);
-        } catch (e) {
-            console.error('Calculate next reminder error:', e);
-            return;
-        }
-
-        console.log('startAlarm - step 8: setting next reminder time');
+        const next = ReminderModule.calculateNextReminder(now, config);
         ReminderModule.setNextReminderTime(next.getTime());
-        ReminderModule.start();
 
-        console.log('startAlarm - step 9: setting main interval');
-        if (mainInterval) clearInterval(mainInterval);
-        mainInterval = setInterval(checkAndRemind, 500);
+        // 启动提醒模块
+        ReminderModule.start(config);
 
-        console.log('startAlarm - step 10: updating UI');
+        // 启动检查循环
+        ReminderModule.startCheckLoop();
+
         UIModule.updateUI(true);
         UIModule.updateNextReminderDisplay(next.getTime());
 
-        console.log('startAlarm - step 11: showing success dialog');
-        /* await showConfirmDialog({
-            title: '启动成功',
-            message: `闹铃已启动！\n下次提醒时间：${next.getHours().toString().padStart(2, '0')}:${next.getMinutes().toString().padStart(2, '0')}:${next.getSeconds().toString().padStart(2, '0')}`,
-            confirmText: '好的',
-            cancelText: '',
-            confirmColor: '#22c55e'
-        });*/
-
-        // 使用自动关闭弹框
-        await showAutoCloseDialog({
-            title: '启动成功',
-            message: `闹铃已启动！\n下次提醒时间：${next.getHours().toString().padStart(2, '0')}:${next.getMinutes().toString().padStart(2, '0')}:${next.getSeconds().toString().padStart(2, '0')}`,
-            autoClose: 3000,
-            confirmColor: '#22c55e'
-        });
-
-        console.log('startAlarm completed successfully');
+        console.log('Alarm started, next reminder at:', new Date(next.getTime()));
+        console.log('Lock minutes from config:', config.lockMinutes);
     }
 
     // 停止闹铃
