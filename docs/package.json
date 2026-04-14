@@ -73,6 +73,7 @@
         }
       ],
       "icon": "icons/icon-256.png",
+      "publisherName": "neopen",
       "artifactName": "HealthClock_${version}_x64_Setup.${ext}",
       "compression": "maximum"
     },
