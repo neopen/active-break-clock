@@ -25,14 +25,12 @@ function createMainWindow() {
     });
 }
 
-// 创建锁屏窗口（独立窗口，全屏置顶）
-function createLockWindow(duration) {
-    // 如果已有锁屏窗口，先关闭
+// 创建锁屏窗口
+function createLockWindow(duration, forceLock) {
     if (lockWindow && !lockWindow.isDestroyed()) {
         lockWindow.close();
     }
 
-    // 清除之前的定时器
     if (lockTimer) {
         clearTimeout(lockTimer);
         lockTimer = null;
@@ -58,19 +56,23 @@ function createLockWindow(duration) {
         }
     });
 
-    // 加载独立的锁屏页面，传递时长参数
-    lockWindow.loadFile('lock.html', { query: { duration: duration } });
+    // 传递参数到锁屏页面
+    lockWindow.loadFile('lock.html', {
+        query: {
+            duration: duration.toString(),
+            forceLock: forceLock ? 'true' : 'false'
+        }
+    });
 
-    // 禁止用户关闭窗口
     lockWindow.on('close', (e) => {
         e.preventDefault();
         return false;
     });
 
-    // 倒计时结束后自动关闭
+    // 备用定时器：确保窗口一定会关闭
     lockTimer = setTimeout(() => {
         closeLockWindow();
-    }, duration * 1000);
+    }, duration * 1000 + 1000);
 }
 
 // 关闭锁屏窗口
@@ -87,12 +89,12 @@ function closeLockWindow() {
 }
 
 // 监听渲染进程消息
-ipcMain.on('show-lock', (event, duration) => {
+ipcMain.on('show-lock', (event, duration, forceLock) => {
     // 禁用主窗口，防止用户操作
     if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setEnabled(false);
     }
-    createLockWindow(duration);
+    createLockWindow(duration, forceLock);
 });
 
 ipcMain.on('lock-complete', () => {

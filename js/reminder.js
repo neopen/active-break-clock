@@ -144,8 +144,8 @@ const ReminderModule = (function () {
 
             isLocked = true;
 
-            // 通知主进程创建锁屏窗口
-            ipcRenderer.send('show-lock', minutes);
+            // 通知主进程创建锁屏窗口，传递强制锁屏参数
+            ipcRenderer.send('show-lock', minutes, forceLock);
 
             // 保存完成回调，等锁屏结束后调用
             window._lockCompleteCallback = () => {

@@ -129,6 +129,32 @@
             margin-top: 6px;
         }
 
+        .action-btn {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            border: none;
+            padding: 18px 32px;
+            border-radius: 60px;
+            font-size: 20px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+            margin-top: 20px;
+        }
+
+        .action-btn:active {
+            transform: scale(0.97);
+        }
+
+        .action-btn.disabled {
+            background: linear-gradient(135deg, #475569 0%, #334155 100%);
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
         .reminder-suggestion {
             margin-top: 32px;
             font-size: 14px;
@@ -148,6 +174,117 @@
         .suggestion-icon {
             font-size: 28px;
         }
+
+        /* ========== 美化的自定义确认弹框 ========== */
+        .custom-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 20000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .custom-dialog {
+            background: white;
+            border-radius: 32px;
+            width: 320px;
+            max-width: 85%;
+            overflow: hidden;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .dialog-icon {
+            text-align: center;
+            padding: 32px 32px 16px 32px;
+            font-size: 56px;
+        }
+
+        .dialog-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: #1e293b;
+            padding: 0 24px 12px 24px;
+        }
+
+        .dialog-message {
+            text-align: center;
+            font-size: 16px;
+            color: #64748b;
+            padding: 0 24px 24px 24px;
+            line-height: 1.5;
+        }
+
+        .dialog-buttons {
+            display: flex;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .dialog-btn {
+            flex: 1;
+            text-align: center;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            background: white;
+        }
+
+        .dialog-btn:active {
+            background: #f1f5f9;
+        }
+
+        .dialog-btn-cancel {
+            color: #64748b;
+            border-right: 1px solid #e2e8f0;
+        }
+
+        .dialog-btn-confirm {
+            color: #f59e0b;
+            font-weight: 700;
+        }
     </style>
 </head>
 
@@ -166,6 +303,8 @@
             </div>
         </div>
 
+        <button id="unlockBtn" class="action-btn">等待倒计时...</button>
+
         <div class="reminder-suggestion">
             <div class="suggestion-item">
                 <span class="suggestion-icon">🚶</span>
@@ -173,23 +312,47 @@
             </div>
             <div class="suggestion-item">
                 <span class="suggestion-icon">💧</span>
-                <span>喝杯水</span>
+                <span>喝杯热水</span>
             </div>
             <div class="suggestion-item">
                 <span class="suggestion-icon">👀</span>
-                <span>看远方</span>
+                <span>看看远方</span>
             </div>
         </div>
     </div>
 
     <script>
-        // 从 URL 参数获取倒计时时长
+        // 获取参数 - 兼容多种方式
+        let remainingSeconds = 120; // 默认2分钟
+        let forceLock = false;
+
+        // 方式1: 从 URL 参数获取
         const urlParams = new URLSearchParams(window.location.search);
-        let remainingSeconds = parseInt(urlParams.get('duration')) || 120;
+        if (urlParams.has('duration')) {
+            remainingSeconds = parseInt(urlParams.get('duration')) || 120;
+        }
+        if (urlParams.has('forceLock')) {
+            forceLock = urlParams.get('forceLock') === 'true';
+        }
+
+        // 方式2: 从 localStorage 获取（备用）
+        if (remainingSeconds === 120) {
+            const savedDuration = localStorage.getItem('lockDuration');
+            if (savedDuration) {
+                remainingSeconds = parseInt(savedDuration);
+            }
+        }
+
+        console.log('Lock screen initialized: duration=', remainingSeconds, 'forceLock=', forceLock);
 
         const countdownSpan = document.getElementById('countdownSeconds');
+        const unlockBtn = document.getElementById('unlockBtn');
         const timerRing = document.getElementById('timerRing');
         let progressCircle = null;
+        let timerInterval = null;
+        let isCompleted = false;
+        let currentSeconds = remainingSeconds;
+        let totalSeconds = remainingSeconds;
 
         // 创建进度圆环
         function createProgressCircle() {
@@ -212,32 +375,163 @@
             }
         }
 
-        function updateTimer() {
-            countdownSpan.innerText = remainingSeconds;
-            updateProgressCircle(remainingSeconds, totalSeconds);
+        // 美化的确认弹框
+        function showConfirmDialog(options) {
+            return new Promise((resolve) => {
+                const { title, message, confirmText = '提前结束', cancelText = '继续活动', confirmColor = '#f59e0b' } = options;
 
-            if (remainingSeconds <= 0) {
-                // 通知主进程关闭锁屏窗口
-                if (window.require) {
-                    const { ipcRenderer } = window.require('electron');
-                    ipcRenderer.send('lock-complete');
-                }
-                window.close();
-            }
-            remainingSeconds--;
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-dialog-overlay';
+
+                const dialog = document.createElement('div');
+                dialog.className = 'custom-dialog';
+
+                dialog.innerHTML = `
+                    <div class="dialog-icon">⚠️</div>
+                    <div class="dialog-title">${title}</div>
+                    <div class="dialog-message">${message}</div>
+                    <div class="dialog-buttons">
+                        ${cancelText ? `<button class="dialog-btn dialog-btn-cancel">${cancelText}</button>` : ''}
+                        <button class="dialog-btn dialog-btn-confirm" style="color: ${confirmColor}">${confirmText}</button>
+                    </div>
+                `;
+
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+
+                const cancelBtn = cancelText ? dialog.querySelector('.dialog-btn-cancel') : null;
+                const confirmBtn = dialog.querySelector('.dialog-btn-confirm');
+
+                const close = (result) => {
+                    overlay.style.animation = 'fadeOut 0.2s ease';
+                    setTimeout(() => {
+                        overlay.remove();
+                        resolve(result);
+                    }, 200);
+                };
+
+                if (cancelBtn) cancelBtn.onclick = () => close(false);
+                confirmBtn.onclick = () => close(true);
+            });
         }
 
-        const totalSeconds = remainingSeconds;
-        updateTimer();
-        const timerInterval = setInterval(updateTimer, 1000);
+        // 关闭锁屏窗口
+        function closeLockWindow() {
+            if (isCompleted) return;
+            isCompleted = true;
 
-        // 防止用户关闭窗口（通过键盘）
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+
+            // 通知主进程关闭锁屏窗口
+            if (window.require) {
+                const { ipcRenderer } = window.require('electron');
+                ipcRenderer.send('lock-complete');
+            }
+
+            window.close();
+        }
+
+        // 更新倒计时显示
+        function updateDisplay() {
+            countdownSpan.innerText = currentSeconds;
+            updateProgressCircle(currentSeconds, totalSeconds);
+
+            if (forceLock) {
+                unlockBtn.innerText = `⏳ 请等待 ${currentSeconds} 秒`;
+                unlockBtn.classList.add('disabled');
+                unlockBtn.disabled = true;
+            } else {
+                unlockBtn.innerText = `⏳ 请活动 ${currentSeconds} 秒`;
+                unlockBtn.classList.remove('disabled');
+                unlockBtn.disabled = false;
+            }
+        }
+
+        // 倒计时主函数
+        function startCountdown() {
+            updateDisplay();
+
+            timerInterval = setInterval(() => {
+                if (currentSeconds <= 1) {
+                    // 倒计时结束，自动关闭
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    countdownSpan.innerText = '0';
+                    unlockBtn.innerText = '✅ 活动完成';
+                    unlockBtn.classList.remove('disabled');
+                    unlockBtn.disabled = false;
+
+                    // 0.5秒后自动关闭
+                    setTimeout(() => {
+                        closeLockWindow();
+                    }, 500);
+                } else {
+                    currentSeconds--;
+                    updateDisplay();
+                }
+            }, 1000);
+        }
+
+        // 提前结束按钮点击处理
+        async function onEarlyUnlock() {
+            if (forceLock) {
+                return;
+            }
+
+            if (currentSeconds > 0) {
+                const confirmed = await showConfirmDialog({
+                    title: '提前结束提醒',
+                    message: '活动时间还没到，提前结束可能会影响健康习惯。\n确定要提前结束吗？',
+                    confirmText: '提前结束',
+                    cancelText: '继续活动',
+                    confirmColor: '#f59e0b'
+                });
+
+                if (confirmed) {
+                    closeLockWindow();
+                }
+            } else {
+                closeLockWindow();
+            }
+        }
+
+        // 初始化
+        currentSeconds = remainingSeconds;
+        totalSeconds = remainingSeconds;
+
+        // 显示初始值
+        countdownSpan.innerText = currentSeconds;
+        updateProgressCircle(currentSeconds, totalSeconds);
+
+        // 设置按钮状态
+        if (forceLock) {
+            unlockBtn.innerText = `⏳ 请等待 ${currentSeconds} 秒`;
+            unlockBtn.classList.add('disabled');
+            unlockBtn.disabled = true;
+        } else {
+            unlockBtn.innerText = `⏳ 请活动 ${currentSeconds} 秒`;
+            unlockBtn.classList.remove('disabled');
+            unlockBtn.disabled = false;
+        }
+
+        // 启动倒计时
+        startCountdown();
+
+        // 绑定按钮事件
+        unlockBtn.addEventListener('click', onEarlyUnlock);
+
+        // 防止用户通过键盘关闭窗口
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' || e.key === 'F11' || (e.ctrlKey && e.key === 'w')) {
+            if (e.key === 'Escape' || e.key === 'F11' || (e.ctrlKey && e.key === 'w') || (e.metaKey && e.key === 'w')) {
                 e.preventDefault();
                 return false;
             }
         });
+
+        console.log('Lock screen ready, currentSeconds:', currentSeconds, 'forceLock:', forceLock);
     </script>
 </body>
 
