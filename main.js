@@ -15,11 +15,11 @@ function createMainWindow() {
         height: 750,
         resizable: true,
         frame: true,
-        titleBarStyle: 'hidden',
+        // titleBarStyle: 'hidden', 隐藏按钮
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
-            zoomFactor: 0.65
+            zoomFactor: 0.8
         }
     });
 
@@ -27,6 +27,13 @@ function createMainWindow() {
     mainWindow.setMenu(null);
 
     mainWindow.loadFile('index.html');
+
+    // 加载完成后设置缩放
+    mainWindow.webContents.on('did-finish-load', () => {
+        mainWindow.webContents.setZoomFactor(0.75);
+        // zoomLevel: 0 = 100%, -0.5 = 约 85%, -1.0 = 约 80%
+        mainWindow.webContents.setZoomLevel(-1.0);  // -0.7 ≈ 85%
+    });
 
     mainWindow.on('closed', () => {
         console.log('[MAIN] Main window closed');
@@ -97,7 +104,9 @@ function createLockWindow(durationSeconds, forceLock) {
         }
     });
 
-    lockWindow.setAlwaysOnTop(true, 'screen-saver');
+    lockWindow.setFullScreen(true);
+    lockWindow.setAlwaysOnTop(true, 'pop-up-menu');
+    // lockWindow.setAlwaysOnTop(true, 'screen-saver');
     lockWindow.setMovable(false);
     lockWindow.setResizable(false);
 
@@ -113,6 +122,11 @@ function createLockWindow(durationSeconds, forceLock) {
             console.log('[LOCK] Injected params via executeJavaScript:', window.__LOCK_PARAMS__);
         `);
         lockWindow.focus();
+
+        // 再次确保全屏
+        if (process.platform === 'win32') {
+            lockWindow.setFullScreen(true);
+        }
     });
 
     lockWindow.on('closed', () => {
@@ -266,10 +280,33 @@ ipcMain.on('hide-lock', () => {
     closeLockWindow();
 });
 
-app.whenReady().then(() => {
-    console.log('[MAIN] App ready');
-    createMainWindow();
-});
+// 单例模式：确保只有一个应用实例运行
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    // 如果已有实例运行，则退出当前实例
+    app.quit();
+} else {
+    // 监听第二个实例启动事件
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+        // 有人试图运行第二个实例，聚焦主窗口
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+
+    app.whenReady().then(() => {
+        console.log('[MAIN] App ready');
+        createMainWindow();
+    });
+}
+
+// 多例模式：确保多个应用实例运行，每个实例都有自己的窗口和状态
+// app.whenReady().then(() => {
+//     console.log('[MAIN] App ready');
+//     createMainWindow();
+// });
 
 app.on('window-all-closed', () => {
     console.log('[MAIN] All windows closed');
