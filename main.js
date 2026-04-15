@@ -1,12 +1,71 @@
-const { app, BrowserWindow, screen, ipcMain } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const FaviconManager = require('./js/favicon.js');
+
+// 确保日志目录存在
+let logDir;
+let logFile;
+
+// 延迟初始化日志目录，确保 app 已就绪
+function initLogDir() {
+    try {
+        logDir = path.join(app.getPath('userData'), 'logs');
+        console.log('[MAIN] Log directory:', logDir);
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+            console.log('[MAIN] Log directory created');
+        }
+        // 日志文件路径
+        logFile = path.join(logDir, `HealthClock_${new Date().toISOString().split('T')[0]}.log`);
+        console.log('[MAIN] Log file:', logFile);
+    } catch (error) {
+        console.error('[MAIN] Error initializing log directory:', error);
+    }
+}
+
+// 重定向 console.log 到文件
+const originalConsoleLog = console.log;
+console.log = function(...args) {
+    const message = `${new Date().toISOString()} - ${args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : arg
+    ).join(' ')}
+`;
+    originalConsoleLog(...args);
+    try {
+        if (logFile) {
+            fs.appendFileSync(logFile, message);
+        }
+    } catch (e) {
+        originalConsoleLog('Error writing to log file:', e);
+    }
+};
+
+// 重定向 console.error 到文件
+const originalConsoleError = console.error;
+console.error = function(...args) {
+    const message = `${new Date().toISOString()} - ERROR - ${args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : arg
+    ).join(' ')}
+`;
+    originalConsoleError(...args);
+    try {
+        if (logFile) {
+            fs.appendFileSync(logFile, message);
+        }
+    } catch (e) {
+        originalConsoleError('Error writing to log file:', e);
+    }
+};
 
 let mainWindow = null;
 let lockWindow = null;
 let lockTimer = null;
 let isLockWindowClosing = false;
 let isRestoringMain = false;
+let tray = null;
+// 标记应用是否正在退出
+app.quitting = false;
 
 function createMainWindow() {
     console.log('[MAIN] Creating main window');
@@ -35,10 +94,87 @@ function createMainWindow() {
         mainWindow.webContents.setZoomLevel(-1.0);  // -0.7 ≈ 85%
     });
 
+    // 当用户点击关闭按钮时，最小化到托盘
+    mainWindow.on('close', (event) => {
+        console.log('[MAIN] Main window close event, app.quitting:', app.quitting);
+        if (app.quitting) {
+            console.log('[MAIN] App is quitting, allowing window to close');
+            mainWindow = null;
+        } else {
+            console.log('[MAIN] Preventing window close, minimizing to tray');
+            event.preventDefault();
+            mainWindow.hide();
+            console.log('[MAIN] Main window minimized to tray');
+        }
+    });
+
     mainWindow.on('closed', () => {
         console.log('[MAIN] Main window closed');
         mainWindow = null;
     });
+}
+
+function createTray() {
+    console.log('[MAIN] Creating tray icon');
+    try {
+        // 使用 FaviconManager 创建托盘图标
+        tray = FaviconManager.createTrayIcon(__dirname);
+        
+        if (!tray) {
+            console.log('[MAIN] Tray creation failed, but app will continue');
+            return;
+        }
+        
+        // 创建托盘菜单
+        const contextMenu = Menu.buildFromTemplate([
+            {
+                label: '显示主窗口',
+                click: () => {
+                    console.log('[MAIN] Showing main window from tray');
+                    if (mainWindow) {
+                        mainWindow.show();
+                        mainWindow.focus();
+                    } else {
+                        createMainWindow();
+                    }
+                }
+            },
+            {
+                label: '退出应用',
+                click: () => {
+                    console.log('[MAIN] Exiting app from tray');
+                    app.quitting = true;
+                    app.quit();
+                }
+            }
+        ]);
+        
+        // 设置托盘图标悬停文本
+        tray.setToolTip('起来走走 - 拒绝久坐');
+        
+        // 设置托盘菜单
+        tray.setContextMenu(contextMenu);
+        
+        // 点击托盘图标显示/隐藏主窗口
+        tray.on('click', () => {
+            if (mainWindow) {
+                if (mainWindow.isVisible()) {
+                    mainWindow.hide();
+                } else {
+                    mainWindow.show();
+                    mainWindow.focus();
+                }
+            } else {
+                createMainWindow();
+            }
+        });
+        
+        console.log('[MAIN] Tray created successfully');
+    } catch (error) {
+        console.error('[MAIN] Error creating tray:', error);
+        console.error('[MAIN] Error stack:', error.stack);
+        // 即使创建托盘失败，应用也能正常运行
+    }
 }
 
 function createLockWindow(durationSeconds, forceLock) {
@@ -80,9 +216,12 @@ function createLockWindow(durationSeconds, forceLock) {
         height: height,
         x: 0,
         y: 0,
+        // 初始设置为全屏
         fullscreen: true,
-        fullscreenable: true, // 先允许全屏，然后强制设置
+        fullscreenable: true,
+        // 启用 kiosk 模式
         kiosk: true,
+        // 初始设置为置顶
         alwaysOnTop: true,
         frame: false,
         transparent: false,
@@ -90,10 +229,17 @@ function createLockWindow(durationSeconds, forceLock) {
         closable: false,
         minimizable: false,
         maximizable: false,
+        // 跳过任务栏
         skipTaskbar: true,
         focusable: true,
         autoHideMenuBar: true,
         show: false, // 先隐藏，设置好后再显示
+        // 禁用所有默认菜单
+        menuBarVisible: false,
+        // 启用无框模式
+        titleBarStyle: 'hidden',
+        // 禁用窗口动画
+        disableAutoHideCursor: true,
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -101,7 +247,7 @@ function createLockWindow(durationSeconds, forceLock) {
         }
     });
 
-    // 通过 URL 参数传递数据，而不是创建临时文件
+    // 通过 URL 参数传递数据
     lockWindow.loadFile('lock.html', {
         query: {
             duration: validDuration,
@@ -113,9 +259,17 @@ function createLockWindow(durationSeconds, forceLock) {
     lockWindow.once('ready-to-show', () => {
         console.log('[MAIN] Lock window ready to show');
         
-        // 设置最高级别的置顶，覆盖所有其他窗口，包括全屏应用
+        // 关键步骤：设置为 kiosk 模式
+        lockWindow.setKiosk(true);
+        
+        // 确保全屏
         lockWindow.setFullScreen(true);
+        
+        // 设置最高级别的置顶，覆盖所有其他窗口，包括全屏应用
+        // 使用 'screen-saver' 级别，这是最高级别
         lockWindow.setAlwaysOnTop(true, 'screen-saver');
+        
+        // 确保窗口属性
         lockWindow.setMovable(false);
         lockWindow.setResizable(false);
         lockWindow.setOpacity(1.0); // 确保完全不透明
@@ -132,6 +286,9 @@ function createLockWindow(durationSeconds, forceLock) {
             event.preventDefault();
         });
         
+        // 禁用所有默认菜单
+        lockWindow.setMenu(null);
+        
         // 注入参数到页面
         lockWindow.webContents.executeJavaScript(`
             window.__LOCK_PARAMS__ = {
@@ -143,11 +300,32 @@ function createLockWindow(durationSeconds, forceLock) {
         
         // 确保窗口获得焦点
         lockWindow.focus();
-        lockWindow.moveTop();
+        lockWindow.moveTop(); // 确保在最顶层
         
         // 显示窗口
         lockWindow.show();
         console.log('[MAIN] Lock window shown');
+        
+        // 再次确认全屏状态
+        setTimeout(() => {
+            console.log('[MAIN] Reconfirming fullscreen state');
+            lockWindow.setKiosk(true);
+            lockWindow.setFullScreen(true);
+            lockWindow.setAlwaysOnTop(true, 'screen-saver');
+            lockWindow.focus();
+            lockWindow.moveTop();
+        }, 100);
+        
+        // 持续确保全屏状态
+        setInterval(() => {
+            if (lockWindow && !lockWindow.isDestroyed()) {
+                lockWindow.setKiosk(true);
+                lockWindow.setFullScreen(true);
+                lockWindow.setAlwaysOnTop(true, 'screen-saver');
+                lockWindow.focus();
+                lockWindow.moveTop();
+            }
+        }, 1000);
     });
 
     lockWindow.on('closed', () => {
@@ -319,7 +497,10 @@ if (!gotTheLock) {
 
     app.whenReady().then(() => {
         console.log('[MAIN] App ready');
+        // 初始化日志目录
+        initLogDir();
         createMainWindow();
+        createTray();
     });
 }
 
@@ -331,7 +512,8 @@ if (!gotTheLock) {
 
 app.on('window-all-closed', () => {
     console.log('[MAIN] All windows closed');
-    if (process.platform !== 'darwin') app.quit();
+    // 不退出应用，保持后台运行
+    // if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('activate', () => {
