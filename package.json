@@ -8,6 +8,10 @@
     "build": "electron-builder --win --x64",
     "build:win": "electron-builder --win --x64",
     "clean": "rmdir /s /q dist node_modules",
+	"build:web": "node scripts/build-web.js",
+    "deploy:web": "npm run build:web && node scripts/deploy-web.js",
+    "serve:web": "npx serve docs",
+	"test": "echo \"Error: no test specified\" && exit 1",
     "compress": "compress.bat"
   },
   "repository": {

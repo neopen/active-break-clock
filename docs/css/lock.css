@@ -1,0 +1,386 @@
+/* ========== 锁屏弹框 - 全屏置顶 ========== */
+.lock-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    z-index: 999999;
+    /* 极高的层级，确保在最顶层 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+    animation: fadeIn 0.3s ease;
+    /* 防止被其他元素覆盖 */
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+/* 确保弹框覆盖所有内容 */
+.lock-overlay.show {
+    display: flex !important;
+}
+
+/* 防止背景滚动 */
+body.lock-active {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+.lock-card {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(20px);
+    border-radius: 56px;
+    padding: 48px 32px;
+    margin: 20px;
+    width: calc(100% - 40px);
+    max-width: 380px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    /* 确保卡片内容可点击 */
+    position: relative;
+    z-index: 1000000;
+}
+
+.lock-icon {
+    font-size: 80px;
+    margin-bottom: 20px;
+    animation: bounce 1s ease infinite;
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.lock-title {
+    font-size: 36px;
+    font-weight: 800;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.lock-message {
+    font-size: 18px;
+    margin-bottom: 40px;
+    opacity: 0.9;
+    line-height: 1.6;
+}
+
+.timer-ring {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin: 0 auto 32px;
+}
+
+.timer-circle-bg {
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.timer-circle-progress {
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: rotate(-90deg);
+}
+
+.timer-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    width: 100%;
+}
+
+.timer-number {
+    font-size: 56px;
+    font-weight: 800;
+    font-family: monospace;
+    background: linear-gradient(135deg, #fff 0%, #c4b5fd 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.timer-unit {
+    font-size: 18px;
+    margin-left: 4px;
+    opacity: 0.7;
+}
+
+.timer-label {
+    font-size: 12px;
+    opacity: 0.5;
+    margin-top: 6px;
+}
+
+.action-btn {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    border: none;
+    padding: 18px 32px;
+    border-radius: 60px;
+    font-size: 20px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+}
+
+.action-btn:active {
+    transform: scale(0.97);
+}
+
+.action-btn.disabled {
+    background: linear-gradient(135deg, #475569 0%, #334155 100%);
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.action-btn.disabled:active {
+    transform: none;
+}
+
+.reminder-suggestion {
+    margin-top: 32px;
+    font-size: 14px;
+    opacity: 0.6;
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+}
+
+.suggestion-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.suggestion-icon {
+    font-size: 28px;
+}
+
+/* 自定义确认弹框 - 确保也在最顶层 */
+.custom-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 10000000;
+    /* 比锁屏弹框更高 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.2s ease;
+}
+
+.custom-dialog {
+    background: white;
+    border-radius: 32px;
+    width: 320px;
+    max-width: 85%;
+    overflow: hidden;
+    animation: slideUp 0.3s ease;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dialog-icon {
+    text-align: center;
+    padding: 32px 32px 16px 32px;
+    font-size: 56px;
+}
+
+.dialog-title {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    padding: 0 24px 12px 24px;
+}
+
+.dialog-message {
+    text-align: center;
+    font-size: 16px;
+    color: #64748b;
+    padding: 0 24px 24px 24px;
+    line-height: 1.5;
+}
+
+.dialog-buttons {
+    display: flex;
+    border-top: 1px solid #e2e8f0;
+}
+
+.dialog-btn {
+    flex: 1;
+    text-align: center;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    background: white;
+}
+
+.dialog-btn:active {
+    background: #f1f5f9;
+}
+
+.dialog-btn-cancel {
+    color: #64748b;
+    border-right: 1px solid #e2e8f0;
+}
+
+.dialog-btn-confirm {
+    color: #ef4444;
+    font-weight: 700;
+}
+
+/* 自动关闭弹框样式 */
+.auto-close-dialog {
+    z-index: 10000000;
+}
+
+.auto-close-dialog-inner {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.auto-close-dialog-inner:active {
+    transform: scale(0.98);
+}
+
+.auto-close-timer {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.timer-bar {
+    display: block;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #22c55e, #16a34a);
+    border-radius: 3px;
+    margin-bottom: 8px;
+    transform-origin: left;
+}
+
+@keyframes shrink {
+    from {
+        transform: scaleX(1);
+    }
+
+    to {
+        transform: scaleX(0);
+    }
+}
+
+.timer-text {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+
+/* 锁屏弹框 - 增强版 */
+.lock-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    z-index: 2147483647;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+    animation: fadeIn 0.3s ease;
+    backdrop-filter: blur(10px);
+
+    /* 强制覆盖所有元素 */
+    position: fixed !important;
+    z-index: 2147483647 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+/* 防止背景滚动 */
+body.lock-active {
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
+}
