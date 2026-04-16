@@ -1,14 +1,20 @@
 // 主入口
 (function () {
+    // app.js 开头添加
+    logger.info('=== App Initialization ===');
+    logger.info('FileSystemUtil available:', typeof FileSystemUtil !== 'undefined');
+    logger.info('FileSystemManager available:', typeof FileSystemManager !== 'undefined');
+    logger.info('Config available:', typeof Config !== 'undefined');
+    logger.info('StatsModule available:', typeof StatsModule !== 'undefined');
 
-    // 检查必需的模块是否已加载
-    // const requiredModules = ['Config', 'StatsModule', 'ReminderModule', 'UIModule', 'AudioModule', 'NotificationModule'];
-    // const missingModules = requiredModules.filter(m => typeof window[m] === 'undefined');
-
-    // if (missingModules.length > 0) {
-    //     console.error('Missing required modules:', missingModules);
-    //     alert('应用初始化失败，请刷新页面或联系开发者。\n缺失模块: ' + missingModules.join(', '));
-    // }
+    // 手动初始化文件系统
+    if (typeof FileSystemManager !== 'undefined') {
+        logger.info('Manually initializing FileSystemManager...');
+        const initResult = FileSystemManager.init();
+        logger.info('FileSystemManager init result:', initResult);
+        logger.info('isUsingLocalFile:', FileSystemManager.isUsingLocalFile());
+        logger.info('getDataPath:', FileSystemManager.getDataPath());
+    }
     
     // 创建日志实例
     const logger = Logger ? Logger.createLogger('App') : console;

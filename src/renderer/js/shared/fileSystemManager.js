@@ -10,51 +10,75 @@ const FileSystemManager = (function () {
         if (_initialized) return true;
         
         console.log('FileSystemManager: Initializing...');
-        
-        // 尝试加载文件系统工具
-        if (typeof require === 'function') {
-            try {
-                // 使用相对路径加载
-                _fileSystemUtil = require('./fs-util.js');
-                console.log('FileSystemManager: FileSystemUtil loaded');
-            } catch (e) {
-                console.warn('FileSystemManager: FileSystemUtil not available:', e.message);
-                _fileSystemUtil = null;
-            }
-        }
+        console.log('FileSystemManager: Environment:', {
+            hasProcess: typeof process !== 'undefined',
+            hasWindow: typeof window !== 'undefined',
+            isElectron: typeof process !== 'undefined' && process.versions && !!process.versions.electron,
+            hasPake: typeof window !== 'undefined' && !!window.pake
+        });
         
         // 检测是否在 PakePlus 环境中
         if (typeof window !== 'undefined' && window.pake) {
             _useLocalFile = true;
             _dataPath = './user-data/';
-            console.log('FileSystemManager: Running in PakePlus, using local file storage');
+            console.log('FileSystemManager: Running in PakePlus');
             _initialized = true;
             return true;
         }
         
         // 检测 Node.js 环境（Electron）
-        if (typeof process !== 'undefined' && process.versions && process.versions.electron && _fileSystemUtil) {
+        if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
             try {
-                _fileSystemUtil.init();
+                // 方法1：尝试使用 window.require
+                if (typeof window !== 'undefined' && window.require) {
+                    try {
+                        _fileSystemUtil = window.require('./fs-util.js');
+                        console.log('FileSystemManager: FileSystemUtil loaded via window.require');
+                    } catch (e) {
+                        console.warn('FileSystemManager: Failed to load via window.require:', e.message);
+                    }
+                }
+                
+                // 方法2：尝试直接使用全局 FileSystemUtil
+                if (!_fileSystemUtil && typeof FileSystemUtil !== 'undefined') {
+                    _fileSystemUtil = FileSystemUtil;
+                    console.log('FileSystemManager: Using global FileSystemUtil');
+                }
+                
+                // 方法3：如果 FileSystemUtil 已通过 script 标签加载，直接使用
+                if (!_fileSystemUtil) {
+                    console.warn('FileSystemManager: FileSystemUtil not available, file operations will fail');
+                    _initialized = true;
+                    return false;
+                }
+                
+                // 初始化 FileSystemUtil
+                if (_fileSystemUtil && typeof _fileSystemUtil.init === 'function') {
+                    _fileSystemUtil.init();
+                }
+                
                 const rootPath = _fileSystemUtil.getRootPath();
                 if (rootPath) {
-                    const path = require('path');
+                    const path = window.require ? window.require('path') : require('path');
                     // 数据保存在 userData 目录下的 User_Data 子目录
                     _dataPath = path.join(rootPath, 'User_Data');
                     console.log('FileSystemManager: Data path set to:', _dataPath);
+                    
                     // 确保 User_Data 目录存在
                     const dirCreated = _fileSystemUtil.ensureDir(_dataPath);
                     console.log('FileSystemManager: User_Data directory created:', dirCreated);
+                    
                     _useLocalFile = true;
                     _initialized = true;
                     return true;
                 }
             } catch (e) {
                 console.error('FileSystemManager: File system error:', e.message);
+                console.error('FileSystemManager: Error stack:', e.stack);
             }
         }
         
-        console.log('FileSystemManager: Using localStorage only');
+        console.log('FileSystemManager: Falling back to localStorage only');
         _initialized = true;
         return false;
     }
@@ -114,20 +138,20 @@ const FileSystemManager = (function () {
     
     return {
         init,
-    getDataPath,
-    isUsingLocalFile,
-    getFileSystemUtil,
-    buildFilePath,
-    fileExists
+        getDataPath,
+        isUsingLocalFile,
+        getFileSystemUtil,
+        buildFilePath,
+        fileExists
     };
 })();
 
-// 导出模块 - 移除条件检查
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = FileSystemManager;
+// 导出到全局
+if (typeof window !== 'undefined') {
+    window.FileSystemManager = FileSystemManager;
 }
 
-// 初始化 - 移除条件检查
-if (typeof FileSystemManager !== 'undefined') {
-    FileSystemManager.init();
+// 导出模块
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = FileSystemManager;
 }

@@ -5,20 +5,37 @@ const FileSystemUtil = (function () {
     let _rootPath = null;
     
     // 初始化文件系统
+    // 初始化文件系统
     function init() {
         if (_initialized) return true;
         
-        if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
+        console.log('FileSystemUtil: Initializing...');
+        
+        // 在 Electron 渲染进程中，通过 window.require 获取 fs 模块
+        if (typeof window !== 'undefined' && window.require) {
+            try {
+                _fs = window.require('fs');
+                _initialized = true;
+                console.log('FileSystemUtil: File system initialized via window.require');
+                return true;
+            } catch (e) {
+                console.warn('FileSystemUtil: Failed to get fs via window.require:', e);
+            }
+        }
+        
+        // 备用方案：使用 require
+        if (typeof require !== 'undefined') {
             try {
                 _fs = require('fs');
                 _initialized = true;
-                console.log('FileSystemUtil: File system initialized');
+                console.log('FileSystemUtil: File system initialized via require');
                 return true;
             } catch (e) {
-                console.warn('FileSystemUtil: File system not available');
-                return false;
+                console.warn('FileSystemUtil: Failed to get fs via require:', e);
             }
         }
+        
+        console.warn('FileSystemUtil: File system not available');
         return false;
     }
     
@@ -32,7 +49,8 @@ const FileSystemUtil = (function () {
         }
         
         try {
-            const path = require('path');
+            // 获取 path 模块
+            const path = window.require ? window.require('path') : require('path');
             let userDataPath = null;
             
             // 通过 Electron 的 ipcRenderer 从主进程获取 userData 路径
@@ -40,6 +58,8 @@ const FileSystemUtil = (function () {
                 try {
                     const { ipcRenderer } = window.require('electron');
                     console.log('FileSystemUtil: Requesting userData path via IPC...');
+                    
+                    // 使用同步请求，但添加超时保护
                     userDataPath = ipcRenderer.sendSync('get-user-data-path');
                     console.log('FileSystemUtil: Got userData path via IPC:', userDataPath);
                 } catch (e) {
@@ -50,25 +70,48 @@ const FileSystemUtil = (function () {
             // 降级方案：使用环境变量
             if (!userDataPath) {
                 console.log('FileSystemUtil: Using fallback path detection');
-                if (process.env.APPDATA) {
-                    userDataPath = path.join(process.env.APPDATA, 'HealthClock');
-                } else if (process.env.HOME) {
-                    if (process.platform === 'darwin') {
-                        userDataPath = path.join(process.env.HOME, 'Library', 'Application Support', 'HealthClock');
-                    } else if (process.platform === 'linux') {
-                        userDataPath = path.join(process.env.HOME, '.config', 'HealthClock');
-                    } else {
-                        userDataPath = path.join(process.env.HOME, 'HealthClock');
-                    }
-                } else {
-                    userDataPath = path.join(process.cwd(), 'HealthClock');
+                
+                // 获取 Electron app 模块
+                let app;
+                try {
+                    const electron = window.require ? window.require('electron') : require('electron');
+                    app = electron.app || electron.remote.app;
+                } catch (e) {
+                    console.warn('FileSystemUtil: Failed to get electron app:', e);
                 }
-                console.log('FileSystemUtil: Fallback userData path:', userDataPath);
+                
+                if (app) {
+                    userDataPath = app.getPath('userData');
+                    console.log('FileSystemUtil: Got userData path via app.getPath:', userDataPath);
+                } else if (typeof process !== 'undefined') {
+                    if (process.env.APPDATA) {
+                        userDataPath = path.join(process.env.APPDATA, 'HealthClock');
+                    } else if (process.env.HOME) {
+                        if (process.platform === 'darwin') {
+                            userDataPath = path.join(process.env.HOME, 'Library', 'Application Support', 'HealthClock');
+                        } else if (process.platform === 'linux') {
+                            userDataPath = path.join(process.env.HOME, '.config', 'HealthClock');
+                        } else {
+                            userDataPath = path.join(process.env.HOME, 'HealthClock');
+                        }
+                    } else {
+                        userDataPath = path.join(process.cwd(), 'HealthClock');
+                    }
+                    console.log('FileSystemUtil: Fallback userData path:', userDataPath);
+                }
             }
             
-            // 直接使用 userDataPath 作为根目录（因为 app.getPath('userData') 已经返回 HealthClock 路径）
+            if (!userDataPath) {
+                console.error('FileSystemUtil: Failed to determine userData path');
+                return null;
+            }
+            
             _rootPath = userDataPath;
             console.log('FileSystemUtil: Root path set to:', _rootPath);
+            
+            // 确保根目录存在
+            ensureDir(_rootPath);
+            
             return _rootPath;
         } catch (e) {
             console.error('FileSystemUtil: Failed to get root path:', e);
@@ -83,6 +126,11 @@ const FileSystemUtil = (function () {
             return false;
         }
         
+        if (!_fs) {
+            console.warn('ensureDir: fs module not available');
+            return false;
+        }
+        
         try {
             if (!_fs.existsSync(dirPath)) {
                 _fs.mkdirSync(dirPath, { recursive: true });
@@ -92,7 +140,7 @@ const FileSystemUtil = (function () {
             }
             return true;
         } catch (e) {
-            console.warn('ensureDir: Failed to ensure directory:', e);
+            console.error('ensureDir: Failed to ensure directory:', dirPath, 'Error:', e.message);
             return false;
         }
     }
@@ -175,6 +223,11 @@ const FileSystemUtil = (function () {
         writeFile
     };
 })();
+
+// 导出到全局
+if (typeof window !== 'undefined') {
+    window.FileSystemUtil = FileSystemUtil;
+}
 
 // 导出模块
 if (typeof module !== 'undefined' && module.exports) {
