@@ -2,6 +2,7 @@
 const FileSystemUtil = (function () {
     let _fs = null;
     let _initialized = false;
+    let _rootPath = null;
     
     // 初始化文件系统
     function init() {
@@ -11,6 +12,7 @@ const FileSystemUtil = (function () {
             try {
                 _fs = require('fs');
                 _initialized = true;
+                console.log('FileSystemUtil: File system initialized');
                 return true;
             } catch (e) {
                 console.warn('FileSystemUtil: File system not available');
@@ -22,15 +24,52 @@ const FileSystemUtil = (function () {
     
     // 获取 HealthClock 根目录路径
     function getRootPath() {
+        if (_rootPath) return _rootPath;
+        
         if (!_initialized && !init()) {
+            console.warn('FileSystemUtil: Not initialized, cannot get root path');
             return null;
         }
         
         try {
             const path = require('path');
-            const { app } = require('electron').remote || require('electron');
-            const userDataPath = app ? app.getPath('userData') : (process.env.APPDATA || process.env.HOME);
-            return path.join(userDataPath, 'HealthClock');
+            let userDataPath = null;
+            
+            // 通过 Electron 的 ipcRenderer 从主进程获取 userData 路径
+            if (typeof window !== 'undefined' && window.require) {
+                try {
+                    const { ipcRenderer } = window.require('electron');
+                    console.log('FileSystemUtil: Requesting userData path via IPC...');
+                    userDataPath = ipcRenderer.sendSync('get-user-data-path');
+                    console.log('FileSystemUtil: Got userData path via IPC:', userDataPath);
+                } catch (e) {
+                    console.warn('FileSystemUtil: Failed to get userData via IPC:', e);
+                }
+            }
+            
+            // 降级方案：使用环境变量
+            if (!userDataPath) {
+                console.log('FileSystemUtil: Using fallback path detection');
+                if (process.env.APPDATA) {
+                    userDataPath = path.join(process.env.APPDATA, 'HealthClock');
+                } else if (process.env.HOME) {
+                    if (process.platform === 'darwin') {
+                        userDataPath = path.join(process.env.HOME, 'Library', 'Application Support', 'HealthClock');
+                    } else if (process.platform === 'linux') {
+                        userDataPath = path.join(process.env.HOME, '.config', 'HealthClock');
+                    } else {
+                        userDataPath = path.join(process.env.HOME, 'HealthClock');
+                    }
+                } else {
+                    userDataPath = path.join(process.cwd(), 'HealthClock');
+                }
+                console.log('FileSystemUtil: Fallback userData path:', userDataPath);
+            }
+            
+            // 直接使用 userDataPath 作为根目录（因为 app.getPath('userData') 已经返回 HealthClock 路径）
+            _rootPath = userDataPath;
+            console.log('FileSystemUtil: Root path set to:', _rootPath);
+            return _rootPath;
         } catch (e) {
             console.error('FileSystemUtil: Failed to get root path:', e);
             return null;
@@ -40,39 +79,47 @@ const FileSystemUtil = (function () {
     // 确保目录存在
     function ensureDir(dirPath) {
         if (!_initialized && !init()) {
-            console.log('ensureDir: File system not initialized');
+            console.warn('ensureDir: File system not initialized');
             return false;
         }
         
         try {
-            // 直接尝试创建目录，如果目录已存在会抛出异常
-            _fs.mkdirSync(dirPath, { recursive: true });
-            console.log('ensureDir: Directory created successfully:', dirPath);
-        } catch (e) {
-            // 目录可能已存在，或者创建失败
-            // 检查错误代码，如果是目录已存在，则忽略
-            if (e.code !== 'EEXIST') {
-                console.warn('FileSystemUtil: Failed to ensure directory:', e);
-                return false;
+            if (!_fs.existsSync(dirPath)) {
+                _fs.mkdirSync(dirPath, { recursive: true });
+                console.log('ensureDir: Directory created successfully:', dirPath);
+            } else {
+                console.log('ensureDir: Directory already exists:', dirPath);
             }
+            return true;
+        } catch (e) {
+            console.warn('ensureDir: Failed to ensure directory:', e);
+            return false;
         }
-        return true;
     }
     
     // 确保 HealthClock 根目录存在
     function ensureRootDir() {
         const rootPath = getRootPath();
-        if (!rootPath) return false;
+        if (!rootPath) {
+            console.warn('ensureRootDir: Root path is null');
+            return false;
+        }
         return ensureDir(rootPath);
     }
     
     // 确保子目录存在
     function ensureSubDir(subDir) {
         const rootPath = getRootPath();
-        if (!rootPath) return false;
+        if (!rootPath) {
+            console.warn('ensureSubDir: Root path is null');
+            return false;
+        }
         
         const dirPath = require('path').join(rootPath, subDir);
-        return ensureDir(dirPath);
+        console.log('FileSystemUtil: Ensuring subdirectory:', dirPath);
+        const result = ensureDir(dirPath);
+        console.log('FileSystemUtil: ensureSubDir result:', result);
+        return result;
     }
     
     // 读取文件
@@ -82,10 +129,15 @@ const FileSystemUtil = (function () {
         }
         
         try {
-            // 直接尝试读取文件，如果不存在会抛出异常
-            return _fs.readFileSync(filePath, 'utf8');
+            if (_fs.existsSync(filePath)) {
+                const content = _fs.readFileSync(filePath, 'utf8');
+                console.log('FileSystemUtil: File read successfully:', filePath);
+                return content;
+            }
+            console.log('FileSystemUtil: File not found:', filePath);
+            return null;
         } catch (e) {
-            // 文件不存在或读取失败，返回 null
+            console.warn('FileSystemUtil: Failed to read file:', e);
             return null;
         }
     }
@@ -93,16 +145,22 @@ const FileSystemUtil = (function () {
     // 写入文件
     function writeFile(filePath, content) {
         if (!_initialized && !init()) {
+            console.warn('writeFile: File system not initialized');
             return false;
         }
         
         try {
             const dirPath = require('path').dirname(filePath);
-            ensureDir(dirPath);
+            const dirCreated = ensureDir(dirPath);
+            if (!dirCreated) {
+                console.warn('writeFile: Failed to create directory:', dirPath);
+                return false;
+            }
             _fs.writeFileSync(filePath, content, 'utf8');
+            console.log('writeFile: File written successfully:', filePath);
             return true;
         } catch (e) {
-            console.warn('FileSystemUtil: Failed to write file:', e);
+            console.warn('writeFile: Failed to write file:', e);
             return false;
         }
     }

@@ -351,7 +351,7 @@
     AudioModule.setLockedGetter(() => ReminderModule.isCurrentlyLocked());
 
     // 注册 Service Worker
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && !window.require) {
         navigator.serviceWorker.register('./sw.js')
             .then(reg => {
                 console.log('Service Worker registered:', reg);

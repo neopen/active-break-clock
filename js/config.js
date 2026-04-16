@@ -1,16 +1,3 @@
-// 配置管理模块
-let FileSystemUtil = null;
-
-// 尝试在 Node.js 环境中加载文件系统工具
-if (typeof require === 'function') {
-    try {
-        FileSystemUtil = require('./fs-util.js');
-    } catch (e) {
-        console.warn('FileSystemUtil not available:', e);
-        FileSystemUtil = null;
-    }
-}
-
 const Config = (function () {
     let _config = null;
     let _elements = {};
@@ -18,10 +5,11 @@ const Config = (function () {
     let _useLocalFile = false;
     let _dataPath = '';
     let _configFileName = 'user_clock_config.json';
+    let _userDirName = 'User_Data';
 
-    // 检测是否在 PakePlus 环境中
+    // 检测是否在 PakePlus 或 Electron 环境中
     function initFileSystem() {
-        // 检测是否在 PakePlus 或 Electron 环境中
+        // 检测是否在 PakePlus 环境中
         if (typeof window !== 'undefined' && window.pake) {
             _useLocalFile = true;
             _dataPath = './user-data/';
@@ -35,10 +23,14 @@ const Config = (function () {
                 FileSystemUtil.init();
                 const rootPath = FileSystemUtil.getRootPath();
                 if (rootPath) {
-                    _dataPath = rootPath;
-                    FileSystemUtil.ensureRootDir();
+                    const path = require('path');
+                    // 数据保存在 userData 目录下的 User_Data 子目录
+                    _dataPath = path.join(rootPath, _userDirName);
+                    // 确保 User_Data 目录存在
+                    const dirCreated = FileSystemUtil.ensureSubDir(_userDirName);
+                    console.log('Config: User_Data directory created:', dirCreated);
+                    console.log('Config: Data path:', _dataPath);
                     _useLocalFile = true;
-                    console.log('Running in Electron, using local file storage at:', _dataPath);
                     return true;
                 }
             } catch (e) {
@@ -73,9 +65,12 @@ const Config = (function () {
         try {
             const path = require('path');
             const filePath = path.join(_dataPath, _configFileName);
+            console.log('Config: Attempting to save to:', filePath);
             const result = FileSystemUtil.writeFile(filePath, JSON.stringify(data, null, 2));
             if (result) {
                 console.log('Config saved to file:', filePath);
+            } else {
+                console.error('Config: Failed to save to file:', filePath);
             }
             return result;
         } catch (e) {

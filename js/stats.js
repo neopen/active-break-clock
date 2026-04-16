@@ -3,7 +3,7 @@ const StatsModule = (function () {
     let _listeners = [];
     let _useLocalFile = false;
     let _dataPath = '';
-
+    
     // 固定标准值：8:00-18:00，每1小时一次，每天8次
     const STANDARD_TARGET_PER_DAY = 10 - 2;
     
@@ -14,7 +14,9 @@ const StatsModule = (function () {
     const STANDARD_TARGET_PER_WEEK = STANDARD_TARGET_PER_DAY * WORKDAYS_PER_WEEK;
     
     // 数据文件路径
-    const DataFilePath = 'clock_stats.json';
+    const DataFileName = 'user_clock_stats.json';
+    const USER_DATA_DIR_NAME = 'User_Data';
+
 
     function initFileSystem() {
         if (typeof window !== 'undefined' && window.pake) {
@@ -28,8 +30,13 @@ const StatsModule = (function () {
                 FileSystemUtil.init();
                 const rootPath = FileSystemUtil.getRootPath();
                 if (rootPath) {
-                    _dataPath = require('path').join(rootPath, 'Stat');
-                    FileSystemUtil.ensureSubDir('Stat');
+                    const path = require('path');
+                    // 数据保存在 userData 目录下的 User_Data 子目录
+                    _dataPath = path.join(rootPath, USER_DATA_DIR_NAME);
+                    // 确保 User_Data 目录存在
+                    const dirCreated = FileSystemUtil.ensureSubDir(USER_DATA_DIR_NAME);
+                    console.log('StatsModule: User_Data directory created:', dirCreated);
+                    console.log('StatsModule: Data path:', _dataPath);
                     _useLocalFile = true;
                     return true;
                 }
@@ -40,13 +47,15 @@ const StatsModule = (function () {
         return false;
     }
 
+
     function loadFromFile() {
         if (!_useLocalFile || !FileSystemUtil) return null;
         try {
             const path = require('path');
-            const filePath = path.join(_dataPath, DataFilePath);
+            const filePath = path.join(_dataPath, DataFileName);
             const data = FileSystemUtil.readFile(filePath);
             if (data) {
+                console.log('StatsModule: Loaded from file:', filePath);
                 return JSON.parse(data);
             }
         } catch (e) {
@@ -59,8 +68,12 @@ const StatsModule = (function () {
         if (!_useLocalFile || !FileSystemUtil) return false;
         try {
             const path = require('path');
-            const filePath = path.join(_dataPath, DataFilePath);
-            return FileSystemUtil.writeFile(filePath, JSON.stringify(data, null, 2));
+            const filePath = path.join(_dataPath, DataFileName);
+            const result = FileSystemUtil.writeFile(filePath, JSON.stringify(data, null, 2));
+            if (result) {
+                console.log('StatsModule: Saved to file:', filePath);
+            }
+            return result;
         } catch (e) {
             console.warn('Save to file failed in stats:', e);
         }
@@ -70,7 +83,26 @@ const StatsModule = (function () {
     function load() {
         initFileSystem();
 
-        const saved = _useLocalFile ? loadFromFile() : localStorage.getItem('activeBreakClockStats');
+        let saved = null;
+        
+        // 优先从本地文件读取
+        if (_useLocalFile) {
+            saved = loadFromFile();
+        }
+        
+        // 回退到 localStorage
+        if (!saved) {
+            const localStorageData = localStorage.getItem('activeBreakClockStats');
+            if (localStorageData) {
+                try {
+                    saved = JSON.parse(localStorageData);
+                    console.log('StatsModule: Loaded from localStorage');
+                } catch (e) {
+                    _stats = getDefaultStats();
+                }
+            }
+        }
+
         const today = getTodayStr();
 
         if (saved) {
@@ -121,11 +153,15 @@ const StatsModule = (function () {
     }
 
     function save() {
+        // 保存到 localStorage
         localStorage.setItem('activeBreakClockStats', JSON.stringify(_stats));
+        
+        // 保存到本地文件
         if (_useLocalFile) {
             saveToFile(_stats);
         }
-        console.log('[Stats] Saved stats:', _stats);
+        
+        console.log('[Stats] Saved stats');
         _listeners.forEach(fn => fn({ ..._stats }));
     }
 

@@ -487,6 +487,20 @@ ipcMain.on('show-lock', (event, duration, forceLock) => {
     createLockWindow(duration, forceLock);
 });
 
+
+// 获取 userData 路径
+ipcMain.on('get-user-data-path', (event) => {
+    console.log('[MAIN] get-user-data-path request received');
+    try {
+        const userDataPath = app.getPath('userData');
+        console.log('[MAIN] Returning userData path:', userDataPath);
+        event.returnValue = userDataPath;
+    } catch (e) {
+        console.error('[MAIN] Error getting userData path:', e);
+        event.returnValue = null;
+    }
+});
+
 ipcMain.on('lock-complete', () => {
     console.log('[MAIN] IPC lock-complete received');
     closeLockWindow();
