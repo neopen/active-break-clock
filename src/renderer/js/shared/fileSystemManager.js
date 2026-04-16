@@ -9,12 +9,16 @@ const FileSystemManager = (function () {
     function init() {
         if (_initialized) return true;
         
+        console.log('FileSystemManager: Initializing...');
+        
         // 尝试加载文件系统工具
         if (typeof require === 'function') {
             try {
-                _fileSystemUtil = require('../fs-util.js');
+                // 使用相对路径加载
+                _fileSystemUtil = require('./fs-util.js');
+                console.log('FileSystemManager: FileSystemUtil loaded');
             } catch (e) {
-                console.warn('FileSystemManager: FileSystemUtil not available:', e);
+                console.warn('FileSystemManager: FileSystemUtil not available:', e.message);
                 _fileSystemUtil = null;
             }
         }
@@ -37,19 +41,20 @@ const FileSystemManager = (function () {
                     const path = require('path');
                     // 数据保存在 userData 目录下的 User_Data 子目录
                     _dataPath = path.join(rootPath, 'User_Data');
+                    console.log('FileSystemManager: Data path set to:', _dataPath);
                     // 确保 User_Data 目录存在
-                    const dirCreated = _fileSystemUtil.ensureSubDir('User_Data');
+                    const dirCreated = _fileSystemUtil.ensureDir(_dataPath);
                     console.log('FileSystemManager: User_Data directory created:', dirCreated);
-                    console.log('FileSystemManager: Data path:', _dataPath);
                     _useLocalFile = true;
                     _initialized = true;
                     return true;
                 }
             } catch (e) {
-                console.error('FileSystemManager: File system not available:', e);
+                console.error('FileSystemManager: File system error:', e.message);
             }
         }
         
+        console.log('FileSystemManager: Using localStorage only');
         _initialized = true;
         return false;
     }
@@ -94,14 +99,31 @@ const FileSystemManager = (function () {
         }
     }
     
+    // 检查文件是否存在
+    function fileExists(fileName) {
+        const filePath = buildFilePath(fileName);
+        if (!filePath) return false;
+        
+        try {
+            const fs = require('fs');
+            return fs.existsSync(filePath);
+        } catch (e) {
+            return false;
+        }
+    }
+    
     return {
         init,
         getDataPath,
         isUsingLocalFile,
         getFileSystemUtil,
-        buildFilePath
+        buildFilePath,
+        fileExists
     };
 })();
+
+// 立即初始化
+FileSystemManager.init();
 
 // 导出模块
 if (typeof module !== 'undefined' && module.exports) {

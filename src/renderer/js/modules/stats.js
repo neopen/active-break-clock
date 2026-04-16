@@ -1,4 +1,3 @@
-// 引入共享模块
 const StatsModule = (function () {
     let _stats = null;
     let _listeners = [];
