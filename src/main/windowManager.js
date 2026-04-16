@@ -146,8 +146,10 @@ function createLockWindow(durationSeconds, forceLock) {
         thickFrame: false,
         useContentSize: true,
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
+            preload: path.join(__dirname, '../preload/preload.js'),
+            contextIsolation: true,   // 开启隔离
+            nodeIntegration: false,   // 关闭 Node 集成
+            sandbox: true,             // 开启沙箱
             webSecurity: false,
             enableRemoteModule: true,
             spellcheck: false
