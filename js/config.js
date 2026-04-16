@@ -6,6 +6,7 @@ const Config = (function () {
     let _useLocalFile = false;
     let _fs = null;
     let _dataPath = '';
+    let _configFileName = '/clock_config.json';
 
     // 检测是否在 PakePlus 环境中
     function initFileSystem() {
@@ -23,7 +24,7 @@ const Config = (function () {
                 _fs = require('fs');
                 const path = require('path');
                 const appDataPath = process.env.APPDATA || process.env.HOME;
-                _dataPath = path.join(appDataPath, 'stand-up-alarm');
+                _dataPath = path.join(appDataPath, 'HealthClock');
                 if (!_fs.existsSync(_dataPath)) {
                     _fs.mkdirSync(_dataPath, { recursive: true });
                 }
@@ -42,7 +43,7 @@ const Config = (function () {
     function loadFromFile() {
         if (!_useLocalFile || !_fs) return null;
         try {
-            const filePath = _dataPath + 'config.json';
+            const filePath = _dataPath + _configFileName;
             if (_fs.existsSync(filePath)) {
                 const data = JSON.parse(_fs.readFileSync(filePath, 'utf8'));
                 console.log('Config loaded from file:', data);
@@ -61,8 +62,8 @@ const Config = (function () {
             if (!_fs.existsSync(_dataPath)) {
                 _fs.mkdirSync(_dataPath, { recursive: true });
             }
-            _fs.writeFileSync(_dataPath + 'config.json', JSON.stringify(data, null, 2), 'utf8');
-            console.log('Config saved to file');
+            _fs.writeFileSync(_dataPath + _configFileName, JSON.stringify(data, null, 2), 'utf8');
+            console.log('Config saved to file:', _dataPath + _configFileName);
             return true;
         } catch (e) {
             console.warn('Save to file failed:', e);

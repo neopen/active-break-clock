@@ -3,28 +3,46 @@ const path = require('path');
 const fs = require('fs');
 const FaviconManager = require('./js/favicon.js');
 
-// 确保日志目录存在
 let logDir;
 let logFile;
+let logBuffer = [];
+let logWriteTimer = null;
+const LOG_FLUSH_INTERVAL = 1000;
 
-// 延迟初始化日志目录，确保 app 已就绪
+function flushLogBuffer() {
+    if (logBuffer.length === 0 || !logFile) return;
+    
+    const messages = logBuffer.join('');
+    logBuffer = [];
+    
+    fs.writeFile(logFile, messages, { flag: 'a' }, (err) => {
+        if (err) {
+            const originalConsoleLog = console.log;
+            originalConsoleLog('Error writing to log file:', err);
+        }
+    });
+}
+
+function scheduleLogFlush() {
+    if (logWriteTimer) return;
+    logWriteTimer = setTimeout(() => {
+        logWriteTimer = null;
+        flushLogBuffer();
+    }, LOG_FLUSH_INTERVAL);
+}
+
 function initLogDir() {
     try {
         logDir = path.join(app.getPath('userData'), 'logs');
-        console.log('[MAIN] Log directory:', logDir);
         if (!fs.existsSync(logDir)) {
             fs.mkdirSync(logDir, { recursive: true });
-            console.log('[MAIN] Log directory created');
         }
-        // 日志文件路径
         logFile = path.join(logDir, `HealthClock_${new Date().toISOString().split('T')[0]}.log`);
-        console.log('[MAIN] Log file:', logFile);
     } catch (error) {
         console.error('[MAIN] Error initializing log directory:', error);
     }
 }
 
-// 重定向 console.log 到文件
 const originalConsoleLog = console.log;
 console.log = function(...args) {
     const message = `${new Date().toISOString()} - ${args.map(arg => 
@@ -32,16 +50,12 @@ console.log = function(...args) {
     ).join(' ')}
 `;
     originalConsoleLog(...args);
-    try {
-        if (logFile) {
-            fs.appendFileSync(logFile, message);
-        }
-    } catch (e) {
-        originalConsoleLog('Error writing to log file:', e);
+    if (logFile) {
+        logBuffer.push(message);
+        scheduleLogFlush();
     }
 };
 
-// 重定向 console.error 到文件
 const originalConsoleError = console.error;
 console.error = function(...args) {
     const message = `${new Date().toISOString()} - ERROR - ${args.map(arg => 
@@ -49,12 +63,9 @@ console.error = function(...args) {
     ).join(' ')}
 `;
     originalConsoleError(...args);
-    try {
-        if (logFile) {
-            fs.appendFileSync(logFile, message);
-        }
-    } catch (e) {
-        originalConsoleError('Error writing to log file:', e);
+    if (logFile) {
+        logBuffer.push(message);
+        scheduleLogFlush();
     }
 };
 

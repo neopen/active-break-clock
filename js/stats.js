@@ -14,6 +14,9 @@ const StatsModule = (function () {
     
     // 每周标准目标次数 = 8次/天 × 5天 = 40次
     const STANDARD_TARGET_PER_WEEK = STANDARD_TARGET_PER_DAY * WORKDAYS_PER_WEEK;
+    
+    // 数据文件路径
+    const DataFilePath = '/clock_stats.json';
 
     function initFileSystem() {
         if (typeof window !== 'undefined' && window.pake) {
@@ -25,14 +28,27 @@ const StatsModule = (function () {
             try {
                 _fs = require('fs');
                 const path = require('path');
-                const appDataPath = process.env.APPDATA || process.env.HOME;
-                _dataPath = path.join(appDataPath, 'active-break-clock');
+                const { app } = require('electron').remote || require('electron');
+                const userDataPath = app ? app.getPath('userData') : (process.env.APPDATA || process.env.HOME);
+                _dataPath = path.join(userDataPath, 'HealthClock', 'stat');
                 if (!_fs.existsSync(_dataPath)) {
                     _fs.mkdirSync(_dataPath, { recursive: true });
                 }
                 _useLocalFile = true;
                 return true;
-            } catch (e) { }
+            } catch (e) {
+                try {
+                    _fs = require('fs');
+                    const path = require('path');
+                    const userDataPath = process.env.APPDATA || process.env.HOME;
+                    _dataPath = path.join(userDataPath, 'HealthClock', 'stat');
+                    if (!_fs.existsSync(_dataPath)) {
+                        _fs.mkdirSync(_dataPath, { recursive: true });
+                    }
+                    _useLocalFile = true;
+                    return true;
+                } catch (e2) { }
+            }
         }
         return false;
     }
@@ -40,7 +56,7 @@ const StatsModule = (function () {
     function loadFromFile() {
         if (!_useLocalFile || !_fs) return null;
         try {
-            const filePath = _dataPath + 'stats.json';
+            const filePath = _dataPath + DataFilePath;
             if (_fs.existsSync(filePath)) {
                 return JSON.parse(_fs.readFileSync(filePath, 'utf8'));
             }
@@ -54,7 +70,7 @@ const StatsModule = (function () {
             if (!_fs.existsSync(_dataPath)) {
                 _fs.mkdirSync(_dataPath, { recursive: true });
             }
-            _fs.writeFileSync(_dataPath + 'stats.json', JSON.stringify(data, null, 2), 'utf8');
+            _fs.writeFileSync(_dataPath + DataFilePath, JSON.stringify(data, null, 2), 'utf8');
             return true;
         } catch (e) { }
         return false;

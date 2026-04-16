@@ -49,6 +49,7 @@
       "!node_modules/.cache",
       "!dist",
       "!docs",
+      "!imgs",
       "!lock_temp.html",
       "!*.md",
       "!*.log",
