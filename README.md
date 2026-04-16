@@ -45,7 +45,7 @@
 
 ### 主界面
 
-​					<img src="./imgs/image-20260416211323719.png" alt="image-20260416211323719" style="zoom:60%;" />   				 <img src="./imgs/image-20260416211401340.png" alt="image-20260416211401340" style="zoom:60%;" />
+​<img src="./imgs/image-20260416211323719.png" alt="image-20260416211323719" style="zoom:60%;" />  <img src="./imgs/image-20260416211401340.png" alt="image-20260416211401340" style="zoom:60%;" />
 
 
 
