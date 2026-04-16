@@ -1,9 +1,10 @@
 // 统计打卡模块
+const FileSystemUtil = require('./fs-util.js');
+
 const StatsModule = (function () {
     let _stats = null;
     let _listeners = [];
     let _useLocalFile = false;
-    let _fs = null;
     let _dataPath = '';
 
     // 固定标准值：8:00-18:00，每1小时一次，每天8次
@@ -26,52 +27,38 @@ const StatsModule = (function () {
         }
         if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
             try {
-                _fs = require('fs');
-                const path = require('path');
-                const { app } = require('electron').remote || require('electron');
-                const userDataPath = app ? app.getPath('userData') : (process.env.APPDATA || process.env.HOME);
-                _dataPath = path.join(userDataPath, 'HealthClock', 'stat');
-                if (!_fs.existsSync(_dataPath)) {
-                    _fs.mkdirSync(_dataPath, { recursive: true });
-                }
-                _useLocalFile = true;
-                return true;
-            } catch (e) {
-                try {
-                    _fs = require('fs');
-                    const path = require('path');
-                    const userDataPath = process.env.APPDATA || process.env.HOME;
-                    _dataPath = path.join(userDataPath, 'HealthClock', 'stat');
-                    if (!_fs.existsSync(_dataPath)) {
-                        _fs.mkdirSync(_dataPath, { recursive: true });
-                    }
+                FileSystemUtil.init();
+                const rootPath = FileSystemUtil.getRootPath();
+                if (rootPath) {
+                    _dataPath = require('path').join(rootPath, 'stat');
+                    FileSystemUtil.ensureSubDir('stat');
                     _useLocalFile = true;
                     return true;
-                } catch (e2) { }
+                }
+            } catch (e) {
+                console.warn('File system not available in stats:', e);
             }
         }
         return false;
     }
 
     function loadFromFile() {
-        if (!_useLocalFile || !_fs) return null;
+        if (!_useLocalFile) return null;
         try {
             const filePath = _dataPath + DataFilePath;
-            if (_fs.existsSync(filePath)) {
-                return JSON.parse(_fs.readFileSync(filePath, 'utf8'));
+            const data = FileSystemUtil.readFile(filePath);
+            if (data) {
+                return JSON.parse(data);
             }
         } catch (e) { }
         return null;
     }
 
     function saveToFile(data) {
-        if (!_useLocalFile || !_fs) return false;
+        if (!_useLocalFile) return false;
         try {
-            if (!_fs.existsSync(_dataPath)) {
-                _fs.mkdirSync(_dataPath, { recursive: true });
-            }
-            _fs.writeFileSync(_dataPath + DataFilePath, JSON.stringify(data, null, 2), 'utf8');
-            return true;
+            const filePath = _dataPath + DataFilePath;
+            return FileSystemUtil.writeFile(filePath, JSON.stringify(data, null, 2));
         } catch (e) { }
         return false;
     }

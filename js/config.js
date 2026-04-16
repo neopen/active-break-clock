@@ -1,10 +1,11 @@
 // 配置管理模块
+const FileSystemUtil = require('./fs-util.js');
+
 const Config = (function () {
     let _config = null;
     let _elements = {};
     let _listeners = [];
     let _useLocalFile = false;
-    let _fs = null;
     let _dataPath = '';
     let _configFileName = '/clock_config.json';
 
@@ -21,16 +22,15 @@ const Config = (function () {
         // 检测 Node.js 环境（Electron）
         if (typeof process !== 'undefined' && process.versions && process.versions.electron) {
             try {
-                _fs = require('fs');
-                const path = require('path');
-                const appDataPath = process.env.APPDATA || process.env.HOME;
-                _dataPath = path.join(appDataPath, 'HealthClock');
-                if (!_fs.existsSync(_dataPath)) {
-                    _fs.mkdirSync(_dataPath, { recursive: true });
+                FileSystemUtil.init();
+                const rootPath = FileSystemUtil.getRootPath();
+                if (rootPath) {
+                    _dataPath = rootPath;
+                    FileSystemUtil.ensureRootDir();
+                    _useLocalFile = true;
+                    console.log('Running in Electron, using local file storage at:', _dataPath);
+                    return true;
                 }
-                _useLocalFile = true;
-                console.log('Running in Electron, using local file storage at:', _dataPath);
-                return true;
             } catch (e) {
                 console.warn('File system not available');
             }
@@ -41,13 +41,14 @@ const Config = (function () {
 
     // 从本地文件加载
     function loadFromFile() {
-        if (!_useLocalFile || !_fs) return null;
+        if (!_useLocalFile) return null;
         try {
             const filePath = _dataPath + _configFileName;
-            if (_fs.existsSync(filePath)) {
-                const data = JSON.parse(_fs.readFileSync(filePath, 'utf8'));
-                console.log('Config loaded from file:', data);
-                return data;
+            const data = FileSystemUtil.readFile(filePath);
+            if (data) {
+                const parsedData = JSON.parse(data);
+                console.log('Config loaded from file:', parsedData);
+                return parsedData;
             }
         } catch (e) {
             console.warn('Load from file failed:', e);
@@ -57,14 +58,14 @@ const Config = (function () {
 
     // 保存到本地文件
     function saveToFile(data) {
-        if (!_useLocalFile || !_fs) return false;
+        if (!_useLocalFile) return false;
         try {
-            if (!_fs.existsSync(_dataPath)) {
-                _fs.mkdirSync(_dataPath, { recursive: true });
+            const filePath = _dataPath + _configFileName;
+            const result = FileSystemUtil.writeFile(filePath, JSON.stringify(data, null, 2));
+            if (result) {
+                console.log('Config saved to file:', filePath);
             }
-            _fs.writeFileSync(_dataPath + _configFileName, JSON.stringify(data, null, 2), 'utf8');
-            console.log('Config saved to file:', _dataPath + _configFileName);
-            return true;
+            return result;
         } catch (e) {
             console.warn('Save to file failed:', e);
             return false;
