@@ -1,6 +1,8 @@
 // 主入口
 (function () {
-    // app.js 开头添加
+    // 创建日志实例
+    const logger = Logger.createLogger('App') || console;
+    
     logger.info('=== App Initialization ===');
     logger.info('FileSystemUtil available:', typeof FileSystemUtil !== 'undefined');
     logger.info('FileSystemManager available:', typeof FileSystemManager !== 'undefined');
@@ -16,8 +18,6 @@
         logger.info('getDataPath:', FileSystemManager.getDataPath());
     }
     
-    // 创建日志实例
-    const logger = Logger ? Logger.createLogger('App') : console;
     // 简化版确认弹框（不依赖 CSS 类）
     function showConfirmDialog(options) {
         logger.info('showConfirmDialog called', options);
@@ -670,6 +670,9 @@
     Config.save(); // 保存配置，确保配置文件被创建
     StatsModule.load(); // 加载统计数据
     StatsModule.save(); // 保存统计数据，确保统计文件被创建
+    // 修复可能的连续打卡数据错误
+    StatsModule.fixContinuousDays(); 
+
     fixValues();
     UIModule.initStatsSubscription();
     UIModule.updateUI(false);

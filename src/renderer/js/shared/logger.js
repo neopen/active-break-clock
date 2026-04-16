@@ -87,3 +87,8 @@ const Logger = (function () {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Logger;
 }
+
+// 导出到全局
+if (typeof window !== 'undefined') {
+    window.Logger = Logger;
+}
