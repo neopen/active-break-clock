@@ -628,6 +628,82 @@ ipcMain.on('show-notification', (event, options) => {
     }
 });
 
+// 异步显示通知（不会阻塞渲染进程）
+ipcMain.on('show-notification-async', (event, options) => {
+    console.log('[MAIN] show-notification-async received:', options);
+    
+    if (!Notification.isSupported()) {
+        console.log('[MAIN] Notifications not supported');
+        return;
+    }
+    
+    try {
+        const notification = new Notification({
+            title: options.title || '别坐了',
+            body: options.body || '',
+            silent: options.silent || false,
+            requireInteraction: options.requireInteraction || false,
+            timeoutType: options.requireInteraction ? 'never' : 'default',
+            urgency: 'normal'
+        });
+        
+        notification.on('click', () => {
+            console.log('[MAIN] Notification clicked');
+            if (mainWindow) {
+                if (mainWindow.isMinimized()) mainWindow.restore();
+                mainWindow.show();
+                mainWindow.focus();
+            }
+        });
+        
+        notification.on('show', () => {
+            console.log('[MAIN] Notification shown');
+        });
+        
+        notification.on('failed', (event, error) => {
+            console.error('[MAIN] Notification failed:', error);
+        });
+        
+        notification.show();
+        console.log('[MAIN] Notification show() called');
+    } catch (e) {
+        console.error('[MAIN] Failed to show notification:', e);
+    }
+});
+
+// 同步显示通知（如果需要返回值）
+ipcMain.on('show-notification', (event, options) => {
+    console.log('[MAIN] show-notification received:', options);
+    
+    if (!Notification.isSupported()) {
+        console.log('[MAIN] Notifications not supported');
+        event.returnValue = false;
+        return;
+    }
+    
+    try {
+        const notification = new Notification({
+            title: options.title || '别坐了',
+            body: options.body || '',
+            silent: options.silent || false,
+            requireInteraction: options.requireInteraction || false
+        });
+        
+        notification.on('click', () => {
+            if (mainWindow) {
+                mainWindow.show();
+                mainWindow.focus();
+            }
+        });
+        
+        notification.show();
+        console.log('[MAIN] Notification shown');
+        event.returnValue = true;
+    } catch (e) {
+        console.error('[MAIN] Failed to show notification:', e);
+        event.returnValue = false;
+    }
+});
 
 // 获取 userData 路径
 ipcMain.on('get-user-data-path', (event) => {

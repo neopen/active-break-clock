@@ -270,6 +270,7 @@ const ReminderModule = (function () {
         lockTimerInterval = setInterval(updateTimer, 100);
     }
 
+
     function trigger(config) {
         console.log('[REMINDER] trigger called, isRunning:', isRunning, 'isLocked:', isLocked, 'pendingLock:', pendingLock);
         console.log('[REMINDER] config received:', config);
@@ -287,49 +288,84 @@ const ReminderModule = (function () {
             return;
         }
 
+        // 获取通知类型
+        const notificationType = config.notificationType || 'desktop';
+        console.log('[REMINDER] Notification type:', notificationType);
+
         // 修复：正确获取 lockMinutes
-        let lockMins = 5; // 默认值
+        let lockMins = 5;
         if (config && config.lockMinutes) {
             lockMins = parseInt(config.lockMinutes);
         } else if (ConfigModule) {
             const currentConfig = ConfigModule.load();
             lockMins = currentConfig.lockMinutes || 5;
         }
-
         lockMins = Math.min(30, Math.max(1, lockMins));
 
         const forceLock = (config && config.forceLock) || false;
         const soundEnabled = (config && config.soundEnabled) !== undefined ? config.soundEnabled : true;
 
-        console.log('[REMINDER] Triggering lock screen with duration:', lockMins, 'minutes (', lockMins * 60, 'seconds)', 'forceLock:', forceLock, 'soundEnabled:', soundEnabled);
+        console.log('[REMINDER] Triggering with type:', notificationType, 'duration:', lockMins, 'minutes');
 
-        // 触发提醒回调（记录统计、发送通知）
-        if (onReminderTrigger) {
-            console.log('[REMINDER] Calling onReminderTrigger');
-            onReminderTrigger();  // 这里会调用 NotificationModule.sendReminder()
+        // 触发提醒回调（记录统计）
+        // 注意：通知发送移到下面根据类型处理
+        const callbacks = getCallbacks();
+        
+        // 先记录统计（无论哪种通知类型都要记录）
+        if (callbacks.onReminderTrigger) {
+            // 传递 notificationType 让回调知道是否需要发送桌面通知
+            callbacks.onReminderTrigger(notificationType);
         }
 
-        pendingLock = true;
-
-        // 先播放声音，再显示锁屏
-        if (soundEnabled && AudioModule) {
-            console.log('[REMINDER] Playing alert sound');
-            AudioModule.playAlert();
-            AudioModule.startContinuous();
-        }
-
-        showLockScreen(lockMins, forceLock, () => {
-            console.log('[REMINDER] Lock screen completed callback');
-            isLocked = false;
-            pendingLock = false;
-            isCreatingLock = false;
-            // 确保声音停止（二次保险）
-            if (AudioModule) {
-                AudioModule.stopContinuous();
+        // 根据通知类型决定行为
+        if (notificationType === 'desktop') {
+            // 桌面通知模式：不锁屏，只发送桌面通知
+            console.log('[REMINDER] Desktop notification mode - no lock screen');
+            
+            // 播放提示音
+            if (soundEnabled && AudioModule) {
+                console.log('[REMINDER] Playing alert sound');
+                AudioModule.playAlert();
+                // 只播放一次，不循环
             }
-            if (onLockClose) onLockClose();
-        });
+            
+            // 直接调度下一次提醒
+            pendingLock = false;
+            isLocked = false;
+            isCreatingLock = false;
+            
+            if (callbacks.onLockClose) {
+                console.log('[REMINDER] Calling onLockClose to schedule next reminder');
+                callbacks.onLockClose();
+            }
+            
+            return;  // 跳过锁屏
+        } else {
+            // 锁屏通知模式：显示全屏锁屏
+            console.log('[REMINDER] Lock screen mode - showing lock screen');
+            
+            pendingLock = true;
+
+            // 先播放声音，再显示锁屏
+            if (soundEnabled && AudioModule) {
+                console.log('[REMINDER] Playing alert sound and starting continuous');
+                AudioModule.playAlert();
+                AudioModule.startContinuous();
+            }
+
+            showLockScreen(lockMins, forceLock, () => {
+                console.log('[REMINDER] Lock screen completed callback');
+                isLocked = false;
+                pendingLock = false;
+                isCreatingLock = false;
+                if (AudioModule) {
+                    AudioModule.stopContinuous();
+                }
+                if (callbacks.onLockClose) callbacks.onLockClose();
+            });
+        }
     }
+
 
     function start(config) {
         console.log('ReminderModule.start called, config:', config);

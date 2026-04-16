@@ -1,46 +1,21 @@
-// src/renderer/js/modules/notification.js
 const NotificationModule = (function () {
     let isEnabled = true;
     let permissionGranted = false;
     let _logger = typeof Logger !== 'undefined' ? Logger.createLogger('Notification') : console;
 
-    // 检查是否在 Electron 环境中
     function isElectron() {
         return typeof window !== 'undefined' && !!window.require;
-    }
-
-    // 获取图标路径
-    function getIconPath() {
-        // 尝试多个可能的图标路径
-        const iconPaths = [
-            './icons/icon-64.png',
-            './icons/icon-128.png',
-            './icons/icon-256.png',
-            './icon-64.png',
-            './icon.png'
-        ];
-        
-        // 返回第一个存在的图标，或者返回空字符串
-        // 在实际使用中，可以使用默认图标
-        return iconPaths[0];
     }
 
     async function init() {
         _logger.info('NotificationModule.init called');
         
-        // 在 Electron 环境中，通过 IPC 请求权限
         if (isElectron()) {
-            try {
-                const { ipcRenderer } = window.require('electron');
-                _logger.info('Requesting notification permission via IPC');
-                const granted = ipcRenderer.sendSync('request-notification-permission');
-                permissionGranted = granted;
-                _logger.info('Notification permission via IPC:', granted);
-                return granted;
-            } catch (e) {
-                _logger.error('Failed to request permission via IPC:', e);
-                return false;
-            }
+            // 在 Electron 环境中，直接设为 true，因为主进程有权限
+            // 不需要通过 IPC 请求权限
+            _logger.info('Electron environment detected, setting permissionGranted = true');
+            permissionGranted = true;
+            return true;
         }
         
         // 浏览器环境
@@ -63,31 +38,22 @@ const NotificationModule = (function () {
                 _logger.info('Notification permission result:', permission);
             } catch (e) {
                 _logger.error('Error requesting permission:', e);
+                permissionGranted = false;
             }
         } else {
             _logger.warn('Notification permission denied');
+            permissionGranted = false;
         }
         
         return permissionGranted;
     }
 
-    // 非阻塞初始化
     function initWithoutWait() {
         _logger.info('NotificationModule.initWithoutWait called');
         
-        // 在 Electron 环境中，通过 IPC 请求权限
         if (isElectron()) {
-            try {
-                const { ipcRenderer } = window.require('electron');
-                ipcRenderer.send('request-notification-permission-async');
-                // 监听权限结果
-                ipcRenderer.once('notification-permission-result', (event, granted) => {
-                    permissionGranted = granted;
-                    _logger.info('Notification permission result (async):', granted);
-                });
-            } catch (e) {
-                _logger.error('Failed to request permission via IPC:', e);
-            }
+            _logger.info('Electron environment, setting permissionGranted = true');
+            permissionGranted = true;
             return;
         }
         
@@ -116,13 +82,14 @@ const NotificationModule = (function () {
         isEnabled = enabled;
         _logger.info('Notification enabled set to:', enabled);
     }
-    
-    function isNotificationEnabled() {
-        return isEnabled && permissionGranted;
-    }
 
     async function send(title, options = {}) {
-        _logger.info('Sending notification:', title, options);
+        _logger.info('========== Sending notification ==========');
+        _logger.info('Title:', title);
+        _logger.info('Options:', options);
+        _logger.info('isEnabled:', isEnabled);
+        _logger.info('permissionGranted:', permissionGranted);
+        _logger.info('isElectron:', isElectron());
         
         if (!isEnabled) {
             _logger.info('Notifications disabled in settings');
@@ -133,16 +100,20 @@ const NotificationModule = (function () {
         if (isElectron()) {
             try {
                 const { ipcRenderer } = window.require('electron');
-                const result = ipcRenderer.sendSync('show-notification', {
-                    title,
+                
+                const notificationOptions = {
+                    title: title,
                     body: options.body || '',
-                    icon: getIconPath(),
                     silent: false,
-                    requireInteraction: options.requireInteraction || false,
-                    tag: options.tag || 'health-reminder'
-                });
-                _logger.info('Notification sent via IPC, result:', result);
-                return result;
+                    requireInteraction: options.requireInteraction || false
+                };
+                
+                _logger.info('Sending to main process:', notificationOptions);
+                
+                // 使用异步方式发送，避免阻塞
+                ipcRenderer.send('show-notification-async', notificationOptions);
+                _logger.info('Notification request sent to main process');
+                return true;
             } catch (e) {
                 _logger.error('Failed to send notification via IPC:', e);
                 return false;
@@ -150,27 +121,22 @@ const NotificationModule = (function () {
         }
         
         // 浏览器环境
-        if (!permissionGranted) {
-            if (Notification.permission === 'default') {
-                _logger.info('Requesting permission before sending');
-                await init();
-            }
-            if (!permissionGranted) {
-                _logger.warn('No notification permission');
-                return false;
-            }
+        if (!('Notification' in window)) {
+            _logger.warn('Notifications not supported');
+            return false;
+        }
+        
+        if (Notification.permission !== 'granted') {
+            _logger.warn('No notification permission');
+            return false;
         }
         
         try {
-            const iconPath = getIconPath();
             const notification = new Notification(title, {
-                icon: iconPath || undefined,  // 如果没有图标，不设置 icon 字段
-                badge: iconPath || undefined,
-                silent: false,
-                requireInteraction: options.requireInteraction || false,
-                tag: options.tag || 'health-reminder',
                 body: options.body || '',
-                ...options
+                icon: './icons/icon-64.png',
+                requireInteraction: options.requireInteraction || false,
+                tag: options.tag || 'health-reminder'
             });
             
             notification.onclick = () => {
@@ -179,11 +145,7 @@ const NotificationModule = (function () {
                 notification.close();
             };
             
-            notification.onerror = (e) => {
-                _logger.error('Notification error:', e);
-            };
-            
-            setTimeout(() => notification.close(), 8000);
+            setTimeout(() => notification.close(), 10000);
             _logger.info('Browser notification sent successfully');
             return true;
         } catch (e) {
@@ -214,7 +176,6 @@ const NotificationModule = (function () {
         init,
         initWithoutWait,
         setEnabled,
-        isNotificationEnabled,
         send,
         sendReminder,
         sendTest
@@ -226,7 +187,6 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = NotificationModule;
 }
 
-// 导出到全局
 if (typeof window !== 'undefined') {
     window.NotificationModule = NotificationModule;
 }

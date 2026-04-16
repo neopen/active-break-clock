@@ -305,7 +305,10 @@
         lockMinutes: document.getElementById('lockMinutes'),
         forceLockToggle: document.getElementById('forceLockToggle'),
         soundToggle: document.getElementById('soundToggle'),
-        notificationToggle: document.getElementById('notificationToggle'),
+        desktopNotification: document.getElementById('desktopNotification'),  // 新增
+        lockNotification: document.getElementById('lockNotification'),        // 新增
+        lockSettingsTitle: document.getElementById('lockSettingsTitle'),      // 新增
+        lockSettingsContent: document.getElementById('lockSettingsContent'), // 新增
         startBtn: document.getElementById('startBtn'),
         stopBtn: document.getElementById('stopBtn'),
         statusBadge: document.getElementById('statusBadge'),
@@ -324,6 +327,23 @@
         testNotifyBtn: document.getElementById('testNotifyBtn')
     };
 
+    // 添加通知类型切换事件
+    if (elements.desktopNotification && elements.lockNotification) {
+        elements.desktopNotification.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                Config.updateNotificationHint('desktop');
+                Config.save();
+            }
+        });
+        
+        elements.lockNotification.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                Config.updateNotificationHint('lock');
+                Config.save();
+            }
+        });
+    }
+
     // 初始化各模块
     Config.setElements(elements);
     ReminderModule.setElements({
@@ -339,13 +359,19 @@
 
     // 设置回调
     ReminderModule.setCallbacks({
-        onReminderTrigger: async () => {
+        onReminderTrigger: async (notificationType) => {
+            console.log('[APP] onReminderTrigger called, notificationType:', notificationType);
+            
             // 记录活动统计
             StatsModule.recordActivity();
-
-            // 发送桌面通知
-            if (Config.get('notificationEnabled')) {
-                await NotificationModule.sendReminder();
+    
+            // 只有桌面通知模式才发送桌面通知
+            if (notificationType === 'desktop') {
+                console.log('[APP] Desktop mode - sending notification');
+                const sent = await NotificationModule.sendReminder();
+                console.log('[APP] Notification sent:', sent);
+            } else {
+                console.log('[APP] Lock mode - skipping desktop notification');
             }
         },
         onLockClose: () => {
@@ -357,10 +383,8 @@
                 const next = ReminderModule.calculateNextReminder(now, config);
                 ReminderModule.setNextReminderTime(next.getTime());
                 UIModule.updateNextReminderDisplay(next.getTime());
-                // 确保检查循环正在运行
                 ReminderModule.startCheckLoop();
             }
-            // 确保声音停止（二次保险）
             AudioModule.stopContinuous();
         }
     });
@@ -422,10 +446,48 @@
         validateAndShowErrors();
     }
 
-    // 启动闹铃
+    // 切换锁屏设置显示/隐藏
+    function toggleLockSettings(notificationType) {
+        const titleEl = elements.lockSettingsTitle;
+        const contentEl = elements.lockSettingsContent;
+        
+        if (titleEl && contentEl) {
+            if (notificationType === 'desktop') {
+                titleEl.style.display = 'none';
+                contentEl.style.display = 'none';
+            } else {
+                titleEl.style.display = 'block';
+                contentEl.style.display = 'block';
+            }
+        }
+    }
+
+    // 挂载到 window，供 config.js 调用
+    window.toggleLockSettings = toggleLockSettings;
+
+    // 添加通知类型切换事件
+    if (elements.desktopNotification && elements.lockNotification) {
+        elements.desktopNotification.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                Config.updateNotificationHint('desktop');
+                toggleLockSettings('desktop');  // 隐藏锁屏设置
+                Config.save();
+            }
+        });
+        
+        elements.lockNotification.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                Config.updateNotificationHint('lock');
+                toggleLockSettings('lock');  // 显示锁屏设置
+                Config.save();
+            }
+        });
+    }
+
+    // 在启动闹铃时检查通知权限
     async function startAlarm() {
         console.log('startAlarm called');
-
+    
         if (!validateAndShowErrors()) {
             await showConfirmDialog({
                 title: '配置无效',
@@ -436,65 +498,51 @@
             });
             return;
         }
-
+    
         if (ReminderModule.isReminderRunning()) {
             console.log('Already running');
             return;
         }
-
-        // 初始化音频和通知（非阻塞）
-        await AudioModule.resume();
-        NotificationModule.initWithoutWait();
-        // 确保通知开关状态同步
-        if (elements.notificationToggle) {
-            elements.notificationToggle.checked = Config.get('notificationEnabled');
+    
+        const notificationType = Config.get('notificationType');
+        console.log('[APP] Notification type:', notificationType);
+        
+        // 如果是桌面通知模式，初始化通知模块（非阻塞）
+        if (notificationType === 'desktop') {
+            // 使用非阻塞初始化，不等待权限请求
+            NotificationModule.initWithoutWait();
+            console.log('[APP] Notification module initialized (non-blocking)');
         }
-
+    
+        // 初始化音频（非阻塞）
+        await AudioModule.resume();
+    
         Config.save();
-
+    
         const now = new Date();
         const config = Config.load();
         console.log('Config loaded for start:', config);
-
+    
         const next = ReminderModule.calculateNextReminder(now, config);
         ReminderModule.setNextReminderTime(next.getTime());
-
-        // 启动提醒模块
+    
         ReminderModule.start(config);
-
-        // 启动检查循环
         ReminderModule.startCheckLoop();
-
+    
         UIModule.updateUI(true);
         UIModule.updateNextReminderDisplay(next.getTime());
-
-        // 检查通知权限
-        if (Config.get('notificationEnabled')) {
-            const granted = await NotificationModule.init();
-            if (!granted) {
-                const confirmed = await showConfirmDialog({
-                    title: '通知权限',
-                    message: '桌面通知未开启，您可能收不到提醒通知。是否继续启动？',
-                    confirmText: '继续启动',
-                    cancelText: '取消',
-                    confirmColor: '#f59e0b'
-                });
-                if (!confirmed) {
-                    return;
-                }
-            }
-        }
-
-        // 显示启动成功提示
+    
+        const modeText = notificationType === 'desktop' ? '桌面通知' : '锁屏通知';
         showAutoCloseDialog({
             title: '启动成功',
-            message: `闹铃已启动，将在 ${next.toLocaleTimeString()} 开始提醒`,
+            message: `闹铃已启动（${modeText}模式），将在 ${next.toLocaleTimeString()} 开始提醒`,
             autoClose: 3000,
             confirmColor: '#22c55e'
         });
-
+    
         console.log('Alarm started, next reminder at:', new Date(next.getTime()));
     }
+
 
     // 停止闹铃
     function stopAlarm() {
@@ -597,14 +645,16 @@
         }
     }
 
-    // 测试通知
     async function testNotification() {
-        if (Config.get('notificationEnabled')) {
+        const notificationType = Config.get('notificationType');
+        console.log('[APP] testNotification called, type:', notificationType);
+        
+        if (notificationType === 'desktop') {
             const sent = await NotificationModule.sendTest();
             if (!sent) {
                 await showConfirmDialog({
-                    title: '通知权限',
-                    message: '请允许浏览器通知权限，以便接收提醒。',
+                    title: '通知发送失败',
+                    message: '请检查 Windows 通知设置，确保已允许此应用发送通知。',
                     confirmText: '知道了',
                     cancelText: '',
                     confirmColor: '#667eea'
@@ -618,11 +668,11 @@
                 });
             }
         } else {
-            await showConfirmDialog({
-                title: '通知未开启',
-                message: '请在设置中开启桌面通知功能。',
-                confirmText: '知道了',
-                cancelText: '',
+            // 锁屏模式 - 显示提示
+            showAutoCloseDialog({
+                title: '锁屏通知模式',
+                message: '当前为锁屏通知模式，提醒时将全屏锁屏',
+                autoClose: 2000,
                 confirmColor: '#667eea'
             });
         }
@@ -669,14 +719,6 @@
         AudioModule.setEnabled(elements.soundToggle.checked);
     });
 
-    elements.notificationToggle.addEventListener('change', () => {
-        Config.save();
-        NotificationModule.setEnabled(elements.notificationToggle.checked);
-        if (elements.notificationToggle.checked) {
-            NotificationModule.initWithoutWait();
-        }
-    });
-
     elements.forceLockToggle.addEventListener('change', () => Config.save());
     elements.startBtn.addEventListener('click', startAlarm);
     elements.stopBtn.addEventListener('click', stopAlarm);
@@ -693,6 +735,10 @@
     StatsModule.save(); // 保存统计数据，确保统计文件被创建
     // 修复可能的连续打卡数据错误
     StatsModule.fixContinuousDays(); 
+
+    // 根据当前通知类型设置锁屏设置显示状态
+    const currentNotificationType = Config.get('notificationType');
+    toggleLockSettings(currentNotificationType);
 
     fixValues();
     UIModule.initStatsSubscription();

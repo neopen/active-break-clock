@@ -55,6 +55,7 @@ const Config = (function () {
         }
     }
 
+
     function load() {
         // 初始化文件系统
         if (FileSystemManager) {
@@ -68,7 +69,7 @@ const Config = (function () {
             lockMinutes: CONFIG ? CONFIG.TIME.DEFAULT_LOCK : 5,
             forceLock: false,
             soundEnabled: true,
-            notificationEnabled: true
+            notificationType: 'desktop'  // 新增：通知类型，默认桌面通知
         };
 
         let saved = null;
@@ -92,6 +93,13 @@ const Config = (function () {
 
         if (saved) {
             _config = { ...defaults, ...saved };
+            // 兼容旧版本：如果有 notificationEnabled 字段，转换为 notificationType
+            if (_config.notificationEnabled !== undefined) {
+                if (!_config.notificationType) {
+                    _config.notificationType = _config.notificationEnabled ? 'desktop' : 'lock';
+                }
+                delete _config.notificationEnabled;  // 移除旧字段
+            }
         } else {
             _config = { ...defaults };
         }
@@ -103,7 +111,18 @@ const Config = (function () {
         if (_elements.lockMinutes) _elements.lockMinutes.value = _config.lockMinutes;
         if (_elements.forceLockToggle) _elements.forceLockToggle.checked = _config.forceLock;
         if (_elements.soundToggle) _elements.soundToggle.checked = _config.soundEnabled;
-        if (_elements.notificationToggle) _elements.notificationToggle.checked = _config.notificationEnabled;
+        
+        // 设置通知类型单选按钮
+        if (_elements.desktopNotification && _elements.lockNotification) {
+            _elements.desktopNotification.checked = (_config.notificationType === 'desktop');
+            _elements.lockNotification.checked = (_config.notificationType === 'lock');
+            updateNotificationHint(_config.notificationType);
+            
+            // 触发锁屏设置显示/隐藏（如果存在 toggleLockSettings 函数）
+            if (typeof window.toggleLockSettings === 'function') {
+                window.toggleLockSettings(_config.notificationType);
+            }
+        }
 
         _logger.info('Config loaded:', _config);
         return { ..._config };
@@ -120,7 +139,13 @@ const Config = (function () {
         if (_elements.lockMinutes) _config.lockMinutes = parseInt(_elements.lockMinutes.value);
         if (_elements.forceLockToggle) _config.forceLock = _elements.forceLockToggle.checked;
         if (_elements.soundToggle) _config.soundEnabled = _elements.soundToggle.checked;
-        if (_elements.notificationToggle) _config.notificationEnabled = _elements.notificationToggle.checked;
+        
+        // 保存通知类型
+        if (_elements.desktopNotification && _elements.desktopNotification.checked) {
+            _config.notificationType = 'desktop';
+        } else if (_elements.lockNotification && _elements.lockNotification.checked) {
+            _config.notificationType = 'lock';
+        }
 
         // 同时保存到 localStorage 和本地文件
         localStorage.setItem('healthAlarmConfig', JSON.stringify(_config));
@@ -134,6 +159,19 @@ const Config = (function () {
 
         return { ..._config };
     }
+
+    // 更新通知提示文字
+    function updateNotificationHint(type) {
+        const hintEl = document.getElementById('notificationHint');
+        if (hintEl) {
+            if (type === 'desktop') {
+                hintEl.innerHTML = '💡 桌面通知：仅弹窗提醒，不锁屏（需开启系统通知权限）';
+            } else {
+                hintEl.innerHTML = '💡 锁屏通知：全屏锁屏，强制休息';
+            }
+        }
+    }
+
 
     function get(key) {
         return _config ? _config[key] : null;
@@ -210,11 +248,17 @@ const Config = (function () {
         validateInterval,
         validateLockMinutes,
         fixIntervalValue,
-        fixLockValue
+        fixLockValue,
+        updateNotificationHint
     };
 })();
 
 // 导出模块
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Config;
+}
+
+// 导出到全局
+if (typeof window !== 'undefined') {
+    window.Config = Config;
 }
