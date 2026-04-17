@@ -7,14 +7,14 @@ const Config = (function () {
     // 从本地文件加载
     function loadFromFile() {
         if (!FileSystemManager || !FileSystemManager.isUsingLocalFile()) return null;
-        
+
         return ErrorHandler.safeExecute(() => {
             const fileSystemUtil = FileSystemManager.getFileSystemUtil();
             if (!fileSystemUtil) return null;
-            
+
             const filePath = FileSystemManager.buildFilePath(CONFIG.FILES.CONFIG);
             if (!filePath) return null;
-            
+
             const data = fileSystemUtil.readFile(filePath);
             if (data) {
                 const parsedData = JSON.parse(data);
@@ -28,14 +28,14 @@ const Config = (function () {
     // 保存到本地文件
     function saveToFile(data) {
         if (!FileSystemManager || !FileSystemManager.isUsingLocalFile()) return false;
-        
+
         return ErrorHandler.safeExecute(() => {
             const fileSystemUtil = FileSystemManager.getFileSystemUtil();
             if (!fileSystemUtil) return false;
-            
+
             const filePath = FileSystemManager.buildFilePath(CONFIG.FILES.CONFIG);
             if (!filePath) return false;
-            
+
             _logger.info('Config: Attempting to save to:', filePath);
             const result = fileSystemUtil.writeFile(filePath, JSON.stringify(data, null, 2));
             if (result) {
@@ -62,6 +62,7 @@ const Config = (function () {
             FileSystemManager.init();
         }
 
+        // 使用 CONFIG 常量作为默认值
         const defaults = {
             startTime: '08:00',
             endTime: '18:00',
@@ -69,7 +70,7 @@ const Config = (function () {
             lockMinutes: CONFIG ? CONFIG.TIME.DEFAULT_LOCK : 5,
             forceLock: false,
             soundEnabled: true,
-            notificationType: 'desktop'  // 新增：通知类型，默认桌面通知
+            notificationType: CONFIG ? CONFIG.NOTIFICATION_TYPE.DESKTOP : 'desktop'
         };
 
         let saved = null;
@@ -98,7 +99,7 @@ const Config = (function () {
                 if (!_config.notificationType) {
                     _config.notificationType = _config.notificationEnabled ? 'desktop' : 'lock';
                 }
-                delete _config.notificationEnabled;  // 移除旧字段
+                delete _config.notificationEnabled;
             }
         } else {
             _config = { ...defaults };
@@ -111,14 +112,13 @@ const Config = (function () {
         if (_elements.lockMinutes) _elements.lockMinutes.value = _config.lockMinutes;
         if (_elements.forceLockToggle) _elements.forceLockToggle.checked = _config.forceLock;
         if (_elements.soundToggle) _elements.soundToggle.checked = _config.soundEnabled;
-        
+
         // 设置通知类型单选按钮
         if (_elements.desktopNotification && _elements.lockNotification) {
             _elements.desktopNotification.checked = (_config.notificationType === 'desktop');
             _elements.lockNotification.checked = (_config.notificationType === 'lock');
             updateNotificationHint(_config.notificationType);
-            
-            // 触发锁屏设置显示/隐藏（如果存在 toggleLockSettings 函数）
+
             if (typeof window.toggleLockSettings === 'function') {
                 window.toggleLockSettings(_config.notificationType);
             }
@@ -127,6 +127,7 @@ const Config = (function () {
         _logger.info('Config loaded:', _config);
         return { ..._config };
     }
+
 
     function save() {
         if (!_config) {
@@ -139,7 +140,7 @@ const Config = (function () {
         if (_elements.lockMinutes) _config.lockMinutes = parseInt(_elements.lockMinutes.value);
         if (_elements.forceLockToggle) _config.forceLock = _elements.forceLockToggle.checked;
         if (_elements.soundToggle) _config.soundEnabled = _elements.soundToggle.checked;
-        
+
         // 保存通知类型
         if (_elements.desktopNotification && _elements.desktopNotification.checked) {
             _config.notificationType = 'desktop';
@@ -191,9 +192,11 @@ const Config = (function () {
         };
     }
 
+
+    // 校验函数使用 CONFIG 常量
     function validateInterval(value, min, max) {
         const num = parseInt(value);
-        const defaultMin = CONFIG ? CONFIG.TIME.MIN_INTERVAL : 1;
+        const defaultMin = CONFIG ? CONFIG.TIME.MIN_INTERVAL : 10;
         const defaultMax = CONFIG ? CONFIG.TIME.MAX_INTERVAL : 300;
         const finalMin = min !== undefined ? min : defaultMin;
         const finalMax = max !== undefined ? max : defaultMax;
@@ -211,13 +214,13 @@ const Config = (function () {
 
     function fixIntervalValue(value, min, max, step) {
         let num = parseInt(value);
-        const defaultMin = CONFIG ? CONFIG.TIME.MIN_INTERVAL : 1;
+        const defaultMin = CONFIG ? CONFIG.TIME.MIN_INTERVAL : 10;
         const defaultMax = CONFIG ? CONFIG.TIME.MAX_INTERVAL : 300;
         const defaultInterval = CONFIG ? CONFIG.TIME.DEFAULT_INTERVAL : 40;
         const finalMin = min !== undefined ? min : defaultMin;
         const finalMax = max !== undefined ? max : defaultMax;
-        const finalStep = step !== undefined ? step : 1;
-        
+        const finalStep = step !== undefined ? step : 5;  // 步长5分钟
+
         if (isNaN(num)) return defaultInterval;
         if (num < finalMin) return finalMin;
         if (num > finalMax) return finalMax;
@@ -231,12 +234,13 @@ const Config = (function () {
         const defaultLock = CONFIG ? CONFIG.TIME.DEFAULT_LOCK : 5;
         const finalMin = min !== undefined ? min : defaultMin;
         const finalMax = max !== undefined ? max : defaultMax;
-        
+
         if (isNaN(num)) return defaultLock;
         if (num < finalMin) return finalMin;
         if (num > finalMax) return finalMax;
         return num;
     }
+
 
     return {
         setElements,

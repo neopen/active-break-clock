@@ -310,40 +310,43 @@ const ReminderModule = (function () {
         // 触发提醒回调（记录统计）
         // 注意：通知发送移到下面根据类型处理
         const callbacks = getCallbacks();
-        
+
         // 先记录统计（无论哪种通知类型都要记录）
         if (callbacks.onReminderTrigger) {
+            console.log('[REMINDER] Calling onReminderTrigger with notificationType:', config.notificationType);
             // 传递 notificationType 让回调知道是否需要发送桌面通知
             callbacks.onReminderTrigger(notificationType);
+        } else {
+            console.error('[REMINDER] onReminderTrigger is null!');
         }
 
         // 根据通知类型决定行为
         if (notificationType === 'desktop') {
             // 桌面通知模式：不锁屏，只发送桌面通知
             console.log('[REMINDER] Desktop notification mode - no lock screen');
-            
+
             // 播放提示音
             if (soundEnabled && AudioModule) {
                 console.log('[REMINDER] Playing alert sound');
                 AudioModule.playAlert();
                 // 只播放一次，不循环
             }
-            
+
             // 直接调度下一次提醒
             pendingLock = false;
             isLocked = false;
             isCreatingLock = false;
-            
+
             if (callbacks.onLockClose) {
                 console.log('[REMINDER] Calling onLockClose to schedule next reminder');
                 callbacks.onLockClose();
             }
-            
+
             return;  // 跳过锁屏
         } else {
             // 锁屏通知模式：显示全屏锁屏
             console.log('[REMINDER] Lock screen mode - showing lock screen');
-            
+
             pendingLock = true;
 
             // 先播放声音，再显示锁屏
@@ -469,7 +472,7 @@ const ReminderModule = (function () {
         // if (nextReminderTimestamp) {
         //     console.log('[REMINDER] Time difference:', (nextReminderTimestamp - now) / 1000, 'seconds');
         // }
-        
+
         if (nextReminderTimestamp && now >= nextReminderTimestamp) {
             console.log('[REMINDER] Time to remind!');
             if (ConfigModule) {

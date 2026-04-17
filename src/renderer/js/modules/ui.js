@@ -55,11 +55,19 @@ const UIModule = (function () {
     }
 
     function updateStatsDisplay(stats) {
-        if (elements.todayCount) elements.todayCount.innerText = stats.todayCount;
-        if (elements.continuousDays) elements.continuousDays.innerText = stats.continuousDays;
+        console.log('[UI] updateStatsDisplay called with:', stats);
+        if (elements.todayCount) {
+            elements.todayCount.innerText = stats.todayCount;
+            console.log('[UI] todayCount updated to:', stats.todayCount);
+        }
+        if (elements.continuousDays) {
+            elements.continuousDays.innerText = stats.continuousDays;
+            console.log('[UI] continuousDays updated to:', stats.continuousDays);
+        }
         if (elements.weeklyRate) {
             const rate = StatsModule.getWeeklyRate();
             elements.weeklyRate.innerText = `${rate}%`;
+            console.log('[UI] weeklyRate updated to:', rate);
         }
     }
 
