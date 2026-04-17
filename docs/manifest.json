@@ -1,0 +1,77 @@
+{
+  "name": "active-break-clock",
+  "version": "0.4.0",
+  "description": "一款强制锁屏的健康提醒应用，帮你打破久坐循环，养成定时活动的好习惯。",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --x64",
+    "build:win32": "electron-builder --win --ia32",
+    "clean": "rmdir /s /q dist node_modules && npm install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neopen/active-break-clock.git"
+  },
+  "keywords": [
+    "health",
+    "reminder",
+    "stand-up",
+    "break-reminder",
+    "sedentary",
+    "electron",
+    "desktop-app"
+  ],
+  "author": "neopen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/neopen/active-break-clock/issues"
+  },
+  "homepage": "https://github.com/neopen/active-break-clock#readme",
+  "type": "commonjs",
+  "build": {
+    "appId": "com.neopen.activebreakclock",
+    "productName": "别坐了",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.cache",
+      "!dist",
+      "!docs",
+      "!icons",
+      "!lock_temp.html",
+      "!*.md",
+      "!.gitignore"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "src/renderer/icons/icon-256.png",
+      "publisherName": "neopen",
+      "verifyUpdateCodeSignature": false,
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "别坐了",
+      "perMachine": true,
+      "installerIcon": "src/renderer/icons/icon-256.ico",
+      "uninstallerIcon": "src/renderer/icons/icon-256.ico",
+      "license": "LICENSE"
+    }
+  },
+  "devDependencies": {
+    "electron": "^29.4.6",
+    "electron-builder": "^24.13.3"
+  }
+}

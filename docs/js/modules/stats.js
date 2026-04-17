@@ -7,14 +7,14 @@ const StatsModule = (function () {
     // 从本地文件加载
     function loadFromFile() {
         if (!FileSystemManager || !FileSystemManager.isUsingLocalFile()) return null;
-        
+
         return ErrorHandler.safeExecute(() => {
             const fileSystemUtil = FileSystemManager.getFileSystemUtil();
             if (!fileSystemUtil) return null;
-            
+
             const filePath = FileSystemManager.buildFilePath(CONFIG.FILES.STATS);
             if (!filePath) return null;
-            
+
             const data = fileSystemUtil.readFile(filePath);
             if (data) {
                 _logger.info('Loaded from file:', filePath);
@@ -27,14 +27,14 @@ const StatsModule = (function () {
     // 保存到本地文件
     function saveToFile(data) {
         if (!FileSystemManager || !FileSystemManager.isUsingLocalFile()) return false;
-        
+
         return ErrorHandler.safeExecute(() => {
             const fileSystemUtil = FileSystemManager.getFileSystemUtil();
             if (!fileSystemUtil) return false;
-            
+
             const filePath = FileSystemManager.buildFilePath(CONFIG.FILES.STATS);
             if (!filePath) return false;
-            
+
             const result = fileSystemUtil.writeFile(filePath, JSON.stringify(data, null, 2));
             if (result) {
                 _logger.info('Saved to file:', filePath);
@@ -70,14 +70,14 @@ const StatsModule = (function () {
     function getWeekNumber(dateStr) {
         const date = new Date(dateStr);
         const year = date.getFullYear();
-        
+
         // 获取该年1月1日是星期几（0=周日, 1=周一, ...）
         const firstDayOfYear = new Date(year, 0, 1);
         const firstDayWeekday = firstDayOfYear.getDay();
-        
+
         // 计算当前日期是当年的第几天
         const dayOfYear = Math.floor((date - firstDayOfYear) / (24 * 60 * 60 * 1000));
-        
+
         // 计算周数（周一为一周的开始）
         let weekNum;
         if (firstDayWeekday <= 1) {
@@ -90,10 +90,11 @@ const StatsModule = (function () {
                 weekNum = Math.floor((dayOfYear - daysToFirstMonday) / 7) + 2;
             }
         }
-        
+
         const weekStr = weekNum < 10 ? `W0${weekNum}` : `W${weekNum}`;
         return `${year}-${weekStr}`;
     }
+
 
     // 加载统计数据
     function load() {
@@ -103,12 +104,12 @@ const StatsModule = (function () {
         }
 
         let saved = null;
-        
+
         // 优先从本地文件读取
         if (FileSystemManager && FileSystemManager.isUsingLocalFile()) {
             saved = loadFromFile();
         }
-        
+
         // 回退到 localStorage
         if (!saved) {
             const localStorageData = localStorage.getItem('activeBreakClockStats');
@@ -140,6 +141,9 @@ const StatsModule = (function () {
         if (!_stats.weeklyRecords) {
             _stats.weeklyRecords = {};
         }
+        if (!_stats.dailyRecords) {
+            _stats.dailyRecords = {};
+        }
         if (typeof _stats.continuousDays !== 'number') {
             _stats.continuousDays = 0;
         }
@@ -154,30 +158,29 @@ const StatsModule = (function () {
             _logger.info('Today:', today);
             _logger.info('Yesterday:', yesterday);
             _logger.info('Before - continuousDays:', _stats.continuousDays, 'todayCount:', _stats.todayCount);
-            
+
             // 判断是否是连续打卡
             const isConsecutive = (_stats.lastActivityDate === yesterday);
-            
+
             if (_stats.lastActivityDate === null) {
                 // 首次使用，不做任何重置
                 _logger.info('First time use, no reset needed');
-                // continuousDays 保持 0
             } else if (isConsecutive) {
-                // 连续打卡：保持 continuousDays 不变（recordActivity 时会增加）
+                // 连续打卡：保持 continuousDays 不变
                 _logger.info('Consecutive day! Keeping continuousDays at:', _stats.continuousDays);
             } else {
                 // 中断打卡：重置连续天数
                 _logger.info('Chain broken! Resetting continuousDays from', _stats.continuousDays, 'to 0');
                 _stats.continuousDays = 0;
             }
-            
+
             // 重置今日计数（因为新的一天还没有活动）
             _stats.todayCount = 0;
             _stats.lastActivityDate = today;
-            
+
             _logger.info('After - continuousDays:', _stats.continuousDays, 'todayCount:', _stats.todayCount);
             _logger.info('=======================');
-            
+
             // 保存更新后的状态
             save();
         } else {
@@ -188,54 +191,69 @@ const StatsModule = (function () {
         return { ..._stats };
     }
 
+
     // 记录活动
     function recordActivity() {
         if (!_stats) {
             _logger.error('Stats not initialized');
             return null;
         }
-        
+
         const today = getTodayStr();
         const week = getWeekNumber(today);
         const yesterday = getYesterdayStr();
-        
+
         _logger.info('========== RECORD ACTIVITY ==========');
         _logger.info('Today:', today);
-        _logger.info('Week:', week);
-        _logger.info('Before - todayCount:', _stats.todayCount, 'continuousDays:', _stats.continuousDays);
-        _logger.info('Last activity date:', _stats.lastActivityDate);
+        _logger.info('Last activity date before:', _stats.lastActivityDate);
+        _logger.info('Continuous days before:', _stats.continuousDays);
+        _logger.info('Today count before:', _stats.todayCount);
 
-        // 检查是否是第一次记录活动
+        // 确保 dailyRecords 存在
+        if (!_stats.dailyRecords) {
+            _stats.dailyRecords = {};
+        }
+
+        // 更新每日记录
+        if (!_stats.dailyRecords[today]) {
+            _stats.dailyRecords[today] = 0;
+        }
+        _stats.dailyRecords[today]++;
+
+        // 判断状态
         const isFirstActivityEver = (_stats.lastActivityDate === null);
-        
-        if (_stats.lastActivityDate === today) {
-            // 同一天多次活动，只增加今日次数，不改变连续打卡
+        const isSameDay = (_stats.lastActivityDate === today);
+        const isConsecutiveDay = (_stats.lastActivityDate === yesterday);
+
+        _logger.info('isFirstActivityEver:', isFirstActivityEver);
+        _logger.info('isSameDay:', isSameDay);
+        _logger.info('isConsecutiveDay:', isConsecutiveDay);
+
+        if (isSameDay) {
+            // 同一天多次活动
             _stats.todayCount++;
-            _logger.info('Same day, increment todayCount to:', _stats.todayCount);
-        } else {
-            // 新的一天（或首次使用）
-            const isConsecutiveDay = (_stats.lastActivityDate === yesterday);
-            
-            _logger.info('New day - yesterday:', yesterday, 'lastActivityDate:', _stats.lastActivityDate, 'isConsecutive:', isConsecutiveDay);
-            
-            // 重置今日计数为 1（本次活动）
-            _stats.todayCount = 1;
-            
-            // 更新连续打卡天数
-            if (isFirstActivityEver) {
-                // 首次使用，连续打卡从 1 开始
+            _logger.info('Same day, todayCount:', _stats.todayCount);
+
+            // 重要：如果连续天数为0，但今天有活动，应该设置为1
+            if (_stats.continuousDays === 0 && _stats.todayCount > 0) {
                 _stats.continuousDays = 1;
-                _logger.info('First activity ever! continuousDays set to 1');
-            } else if (isConsecutiveDay) {
-                // 连续打卡，增加天数
-                _stats.continuousDays++;
-                _logger.info('Consecutive day! continuousDays increased to:', _stats.continuousDays);
-            } else {
-                // 不连续，重置为 1（今天算第一天）
-                _stats.continuousDays = 1;
-                _logger.info('Chain broken, reset continuousDays to 1');
+                _logger.info('Fixed continuousDays from 0 to 1 for same day activity');
             }
-            
+        } else {
+            // 新的一天
+            _stats.todayCount = 1;
+
+            if (isFirstActivityEver) {
+                _stats.continuousDays = 1;
+                _logger.info('First activity ever, continuousDays:', _stats.continuousDays);
+            } else if (isConsecutiveDay) {
+                _stats.continuousDays++;
+                _logger.info('Consecutive day, continuousDays:', _stats.continuousDays);
+            } else {
+                _stats.continuousDays = 1;
+                _logger.info('Chain broken, continuousDays reset to 1');
+            }
+
             _stats.lastActivityDate = today;
         }
 
@@ -248,70 +266,126 @@ const StatsModule = (function () {
         }
         _stats.weeklyRecords[week]++;
 
-        _logger.info('After - todayCount:', _stats.todayCount, 'continuousDays:', _stats.continuousDays);
-        _logger.info('Weekly record for', week, ':', _stats.weeklyRecords[week]);
+        _logger.info('Final - todayCount:', _stats.todayCount);
+        _logger.info('Final - continuousDays:', _stats.continuousDays);
+        _logger.info('Final - lastActivityDate:', _stats.lastActivityDate);
         _logger.info('=======================================');
-        
+
         save();
+
+        // 强制触发 UI 更新
+        if (typeof UIModule !== 'undefined' && UIModule.updateStatsDisplay) {
+            UIModule.updateStatsDisplay({ ..._stats });
+        }
+
+        // 触发自定义事件
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('stats-updated', { detail: { ..._stats } }));
+        }
+
         return { ..._stats };
     }
+
 
     // 保存统计数据
     function save() {
         // 保存到 localStorage
         localStorage.setItem('activeBreakClockStats', JSON.stringify(_stats));
-        
+
         // 保存到本地文件
         if (FileSystemManager && FileSystemManager.isUsingLocalFile()) {
             saveToFile(_stats);
         }
-        
+
         _logger.info('Saved stats');
         _listeners.forEach(fn => fn({ ..._stats }));
     }
 
-    // 获取本周完成率（基于固定标准）
+
+
+    // 获取本周完成率（每天按实际完成比例计算）
+    // 每天占比 = MIN(实际打卡次数 / 10, 1) × 20%
+    // 本周完成率 = 五天占比相加
     function getWeeklyRate() {
         if (!_stats) {
             _logger.warn('Stats not initialized');
             return 0;
         }
-        
-        const today = getTodayStr();
-        const week = getWeekNumber(today);
-        
-        if (!_stats.weeklyRecords) {
-            _stats.weeklyRecords = {};
+
+        const dailyTarget = CONFIG ? CONFIG.TARGETS.PER_DAY : 10;
+        const workDaysPerWeek = CONFIG ? CONFIG.TARGETS.WORK_DAYS_PER_WEEK : 5;
+
+        // 获取本周开始日期（周一）
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0=周日, 1=周一, ..., 6=周六
+
+        // 计算本周一日期
+        const monday = new Date(now);
+        const dayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        monday.setDate(now.getDate() - dayOffset);
+        monday.setHours(0, 0, 0, 0);
+
+        // 确保 dailyRecords 存在
+        if (!_stats.dailyRecords) {
+            _stats.dailyRecords = {};
+            if (_stats.lastActivityDate && _stats.todayCount > 0) {
+                _stats.dailyRecords[_stats.lastActivityDate] = _stats.todayCount;
+            }
         }
-        
-        const currentCount = _stats.weeklyRecords[week] || 0;
-        const weeklyTarget = CONFIG ? CONFIG.TARGETS.PER_WEEK : 40;
-        
-        // 基于固定标准计算完成率
-        let rate = 0;
-        if (weeklyTarget > 0) {
-            rate = Math.min(100, Math.round((currentCount / weeklyTarget) * 100));
+
+        let totalRate = 0;
+
+        // 计算本周每一天（周一至周五）
+        for (let i = 0; i < workDaysPerWeek; i++) {
+            const checkDate = new Date(monday);
+            checkDate.setDate(monday.getDate() + i);
+            const dateStr = formatDateStr(checkDate);
+
+            // 获取该天的活动次数
+            const dayCount = _stats.dailyRecords[dateStr] || 0;
+
+            // 计算当天占比：MIN(实际次数 / 10, 1) × 20%
+            const ratio = Math.min(dayCount / dailyTarget, 1);
+            const dayRate = ratio * 20;
+
+            totalRate += dayRate;
+
+            _logger.info(`Day ${i + 1} (${dateStr}): count=${dayCount}, ratio=${ratio.toFixed(2)}, dayRate=${dayRate.toFixed(1)}%`);
         }
-        
-        _logger.info('Weekly rate - week:', week, 'count:', currentCount, 'target:', weeklyTarget, 'rate:', rate);
-        
-        return rate;
+
+        // 保留整数
+        const finalRate = Math.round(totalRate);
+
+        _logger.info('Weekly rate calculation:', {
+            dailyTarget: dailyTarget,
+            totalRate: totalRate,
+            finalRate: finalRate,
+            dailyRecords: _stats.dailyRecords
+        });
+
+        return finalRate;
     }
-    
+
+    // 辅助函数：格式化日期
+    function formatDateStr(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+
     // 获取本周目标次数
     function getWeeklyTarget() {
         return CONFIG ? CONFIG.TARGETS.PER_WEEK : 40;
     }
-    
+
     // 获取每日目标次数
     function getDailyTarget() {
         return CONFIG ? CONFIG.TARGETS.PER_DAY : 8;
     }
-    
+
     // 获取本周已活动次数
     function getWeeklyCount() {
         if (!_stats) return 0;
-        
+
         const today = getTodayStr();
         const week = getWeekNumber(today);
         return _stats.weeklyRecords?.[week] || 0;
@@ -323,22 +397,22 @@ const StatsModule = (function () {
             _logger.error('Stats not initialized');
             return;
         }
-        
+
         _logger.info('Resetting today count from', _stats.todayCount, 'to 0');
         _stats.todayCount = 0;
         save();
     }
-    
+
     // 重置本周统计
     function resetWeek() {
         if (!_stats) {
             _logger.error('Stats not initialized');
             return;
         }
-        
+
         const today = getTodayStr();
         const week = getWeekNumber(today);
-        
+
         _logger.info('Resetting week stats for', week);
         if (_stats.weeklyRecords) {
             _stats.weeklyRecords[week] = 0;
@@ -353,18 +427,18 @@ const StatsModule = (function () {
             _logger.error('Stats not initialized');
             return;
         }
-        
+
         const today = getTodayStr();
         const yesterday = getYesterdayStr();
-        
+
         _logger.info('=== Fixing continuous days ===');
         _logger.info('Current continuousDays:', _stats.continuousDays);
         _logger.info('Last activity date:', _stats.lastActivityDate);
         _logger.info('Today:', today);
         _logger.info('Yesterday:', yesterday);
-        
+
         let fixed = false;
-        
+
         // 如果最后活动日期是昨天，说明连续打卡应该至少为 1
         if (_stats.lastActivityDate === yesterday) {
             if (_stats.continuousDays === 0) {
@@ -373,7 +447,7 @@ const StatsModule = (function () {
                 fixed = true;
             }
         }
-        
+
         // 如果最后活动日期既不是今天也不是昨天，说明链条已断
         if (_stats.lastActivityDate !== today && _stats.lastActivityDate !== yesterday) {
             if (_stats.lastActivityDate !== null && _stats.continuousDays > 0) {
@@ -382,21 +456,21 @@ const StatsModule = (function () {
                 fixed = true;
             }
         }
-        
+
         // 如果有今日活动但连续打卡为0，修正为1
         if (_stats.todayCount > 0 && _stats.continuousDays === 0 && _stats.lastActivityDate === today) {
             _logger.info('Fixing: has activity today but continuousDays is 0, setting to 1');
             _stats.continuousDays = 1;
             fixed = true;
         }
-        
+
         if (fixed) {
             save();
             _logger.info('After fix - continuousDays:', _stats.continuousDays);
         } else {
             _logger.info('No fix needed');
         }
-        
+
         _logger.info('===============================');
     }
 
@@ -406,7 +480,7 @@ const StatsModule = (function () {
             _logger.error('Stats not initialized');
             return;
         }
-        
+
         _logger.info('Manually resetting continuousDays from', _stats.continuousDays, 'to 0');
         _stats.continuousDays = 0;
         save();
@@ -424,7 +498,7 @@ const StatsModule = (function () {
                 dailyTarget: getDailyTarget()
             };
         }
-        
+
         return {
             todayCount: _stats.todayCount,
             continuousDays: _stats.continuousDays,
