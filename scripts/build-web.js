@@ -21,18 +21,24 @@ console.log('  📁 Created docs/ directory\n');
 console.log('📦 Copying static assets...');
 
 const staticItems = [
-    { src: 'css', dest: 'css' },
-    { src: 'icons', dest: 'icons' },
-    { src: 'js', dest: 'js' },
-    { src: 'manifest.json', dest: 'manifest.json' }
+    { src: 'css', dest: 'css', fromSrc: true },
+    { src: 'icons', dest: 'icons', fromSrc: true },
+    { src: 'js', dest: 'js', fromSrc: true },
+    { src: 'manifest.json', dest: 'manifest.json', fromSrc: false }  // 从根目录复制
 ];
 
 staticItems.forEach(item => {
-    const src = path.join(SRC_DIR, item.src);
+    const src = item.fromSrc
+        ? path.join(SRC_DIR, item.src)
+        : path.join(ROOT_DIR, item.src);
     const dest = path.join(DOCS_DIR, item.dest);
 
     if (fs.existsSync(src)) {
-        copyRecursive(src, dest);
+        if (fs.statSync(src).isDirectory()) {
+            copyRecursive(src, dest);
+        } else {
+            fs.copyFileSync(src, dest);
+        }
         console.log(`  ✅ ${item.src}`);
     } else {
         console.log(`  ⚠️  Missing: ${item.src}`);
