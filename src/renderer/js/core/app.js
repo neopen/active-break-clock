@@ -90,11 +90,97 @@
     elements.resetStatsBtn?.addEventListener('click', () => StatsController.reset());
     elements.testNotifyBtn?.addEventListener('click', () => NotificationTester.test());
 
-    // 注册 Service Worker（非 Electron 环境）
-    if ('serviceWorker' in navigator && !window.require) {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => logger.info('Service Worker registered:', reg))
-            .catch(err => logger.error('Service Worker registration failed:', err));
+    /**
+     * 注册 Service Worker（带环境检测和错误处理）
+     */
+    async function registerServiceWorker() {
+        // 检查是否支持 Service Worker
+        if (!('serviceWorker' in navigator)) {
+            logger.info('Service Worker not supported by browser');
+            return false;
+        }
+
+        // 检查是否在 Electron 环境中（Electron 有自己的更新机制）
+        if (window.require) {
+            logger.info('Running in Electron environment, skipping Service Worker');
+            return false;
+        }
+
+        // 检查协议是否支持 Service Worker
+        const supportedProtocols = ['http:', 'https:'];
+        const currentProtocol = window.location.protocol;
+
+        if (!supportedProtocols.includes(currentProtocol)) {
+            logger.warn('Service Worker registration skipped: Unsupported protocol', {
+                protocol: currentProtocol,
+                reason: 'Service Worker requires HTTP/HTTPS protocol'
+            });
+            return false;
+        }
+
+        // 检查是否是安全上下文（HTTPS 或 localhost）
+        if (!window.isSecureContext && currentProtocol === 'https:') {
+            logger.warn('Service Worker registration may fail: Not a secure context');
+        }
+
+        try {
+            // 检查 Service Worker 文件是否存在
+            const swResponse = await fetch('./sw.js', { method: 'HEAD' });
+            if (!swResponse.ok) {
+                throw new Error(`Service Worker file not found (${swResponse.status})`);
+            }
+
+            // 注册 Service Worker
+            const registration = await navigator.serviceWorker.register('./sw.js', {
+                scope: './'
+            });
+
+            logger.info('Service Worker registered successfully:', {
+                scope: registration.scope,
+                state: registration.installing?.state || registration.waiting?.state || registration.active?.state
+            });
+
+            // 监听更新
+            registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                logger.info('Service Worker update found:', newWorker.state);
+
+                newWorker.addEventListener('statechange', () => {
+                    logger.info('Service Worker state changed:', newWorker.state);
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        logger.info('New Service Worker available, please refresh');
+                        // 可选：显示更新提示
+                        if (typeof AutoCloseDialog !== 'undefined') {
+                            AutoCloseDialog.show({
+                                title: '应用更新',
+                                message: '发现新版本，请刷新页面以获取最新功能',
+                                autoClose: 5000,
+                                confirmColor: '#3b82f6'
+                            });
+                        }
+                    }
+                });
+            });
+
+            return true;
+        } catch (error) {
+            // 只记录非预期的错误，协议错误已经在上层过滤
+            if (error.message && !error.message.includes('protocol')) {
+                logger.error('Service Worker registration failed:', error);
+            } else if (error.message && error.message.includes('fetch')) {
+                logger.warn('Service Worker file not found, skipping registration');
+            }
+            return false;
+        }
+    }
+
+    // 延迟注册 Service Worker，避免影响主应用启动
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => registerServiceWorker(), 1000);
+        });
+    } else {
+        setTimeout(() => registerServiceWorker(), 1000);
     }
 
     // 开机自启动开关
