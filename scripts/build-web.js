@@ -42,19 +42,41 @@ staticItems.forEach(item => {
 // ========== 3. 创建 Web 适配脚本 ==========
 console.log('\n📝 Creating web adapter...');
 
-const webAdapter = `// Web 适配层 - 模拟 Electron 环境
+const webAdapter = `// Web 适配层 - 模拟 Electron 环境并修复锁屏功能
 (function() {
     console.log('[Web Adapter] Initializing...');
     
-    // 模拟 require 函数
+    // 存储锁屏窗口引用
+    var _lockWindow = null;
+    var _soundInterval = null;
+    
+    // ========== 模拟 require 函数 ==========
     window.require = function(module) {
         console.log('[Web Adapter] require:', module);
         if (module === 'electron') {
             return {
                 ipcRenderer: {
-                    send: function() {},
+                    send: function(channel, ...args) {
+                        console.log('[Web Adapter] ipcRenderer.send:', channel, args);
+                        if (channel === 'show-lock') {
+                            var duration = args[0] || 60;
+                            var forceLock = args[1] || false;
+                            var url = 'lock.html?duration=' + duration + '&forceLock=' + forceLock;
+                            _lockWindow = window.open(url, '_blank', 'width=' + screen.width + ',height=' + screen.height + ',top=0,left=0');
+                        }
+                        if (channel === 'hide-lock') {
+                            if (_lockWindow && !_lockWindow.closed) {
+                                _lockWindow.close();
+                            }
+                            _lockWindow = null;
+                        }
+                    },
                     sendSync: function() { return null; },
-                    on: function() {},
+                    on: function(channel, callback) {
+                        if (!window._ipcCallbacks) window._ipcCallbacks = {};
+                        if (!window._ipcCallbacks[channel]) window._ipcCallbacks[channel] = [];
+                        window._ipcCallbacks[channel].push(callback);
+                    },
                     once: function() {},
                     removeListener: function() {}
                 }
@@ -78,7 +100,47 @@ const webAdapter = `// Web 适配层 - 模拟 Electron 环境
         return {};
     };
     
-    // 模拟文件系统模块
+    // ========== 触发 IPC 回调 ==========
+    window.triggerIPC = function(channel, ...args) {
+        if (window._ipcCallbacks && window._ipcCallbacks[channel]) {
+            window._ipcCallbacks[channel].forEach(function(cb) {
+                try { cb(null, ...args); } catch(e) {}
+            });
+        }
+        // 特殊处理：锁屏关闭时停止声音
+        if (channel === 'lock-closed' || channel === 'stop-sound') {
+            stopSound();
+            _lockWindow = null;
+        }
+    };
+    
+    // ========== 停止声音 ==========
+    function stopSound() {
+        if (_soundInterval) {
+            clearInterval(_soundInterval);
+            _soundInterval = null;
+        }
+        console.log('[Web Adapter] Sound stopped');
+    }
+    
+    // ========== 播放声音（模拟） ==========
+    function playBeep() {
+        try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            if (ctx.state === 'suspended') ctx.resume();
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+        } catch(e) {}
+    }
+    
+    // ========== 模拟文件系统模块 ==========
     window.FileSystemManager = window.FileSystemManager || {
         init: function() { return false; },
         isUsingLocalFile: function() { return false; },
@@ -94,19 +156,40 @@ const webAdapter = `// Web 适配层 - 模拟 Electron 环境
         writeFile: function() { return false; }
     };
     
-    // 模拟 AudioModule
+    // ========== 模拟 AudioModule ==========
     if (!window.AudioModule) {
         window.AudioModule = {
             setEnabled: function() {},
             setLockedGetter: function() {},
-            playAlert: function() {},
-            startContinuous: function() {},
-            stopContinuous: function() {},
+            playAlert: function() { playBeep(); },
+            startContinuous: function() {
+                stopSound();
+                playBeep();
+                _soundInterval = setInterval(function() {
+                    playBeep();
+                }, 3000);
+            },
+            stopContinuous: function() { stopSound(); },
             resume: function() { return Promise.resolve(); }
+        };
+    } else {
+        // 增强已有的 AudioModule
+        var originalStart = window.AudioModule.startContinuous;
+        var originalStop = window.AudioModule.stopContinuous;
+        window.AudioModule.startContinuous = function() {
+            stopSound();
+            if (originalStart) originalStart.call(this);
+            _soundInterval = setInterval(function() {
+                playBeep();
+            }, 3000);
+        };
+        window.AudioModule.stopContinuous = function() {
+            stopSound();
+            if (originalStop) originalStop.call(this);
         };
     }
     
-    // 模拟 NotificationModule
+    // ========== 模拟 NotificationModule ==========
     if (!window.NotificationModule) {
         window.NotificationModule = {
             init: function() { return Promise.resolve(false); },
@@ -118,7 +201,104 @@ const webAdapter = `// Web 适配层 - 模拟 Electron 环境
         };
     }
     
-    // 禁用 Service Worker
+    // ========== 修复 ReminderModule ==========
+    var fixReminder = function() {
+        if (!window.ReminderModule) return false;
+        
+        console.log('[Web Adapter] Fixing ReminderModule...');
+        
+        var originalTrigger = window.ReminderModule.trigger;
+        
+        window.ReminderModule.trigger = function(config) {
+            console.log('[Web Adapter] ReminderModule.trigger', config);
+            
+            var lockMins = 5;
+            if (config && config.lockMinutes) lockMins = parseInt(config.lockMinutes);
+            if (config && config.lockMinutes === undefined && window.Config) {
+                var cfg = window.Config.load();
+                lockMins = cfg.lockMinutes || 5;
+            }
+            lockMins = Math.min(30, Math.max(1, lockMins));
+            
+            var forceLock = (config && config.forceLock) || false;
+            var soundEnabled = (config && config.soundEnabled) !== false;
+            
+            // 调用回调
+            var callbacks = window.ReminderModule.getCallbacks ? window.ReminderModule.getCallbacks() : null;
+            if (callbacks && callbacks.onReminderTrigger) {
+                var notificationType = window.Config ? window.Config.get('notificationType') : 'desktop';
+                callbacks.onReminderTrigger(notificationType);
+            }
+            
+            // 播放声音
+            if (soundEnabled && window.AudioModule) {
+                window.AudioModule.startContinuous();
+            }
+            
+            // 打开锁屏窗口
+            var durationSeconds = lockMins * 60;
+            var url = 'lock.html?duration=' + durationSeconds + '&forceLock=' + forceLock;
+            console.log('[Web Adapter] Opening lock window:', url);
+            
+            _lockWindow = window.open(url, '_blank', 'width=' + screen.width + ',height=' + screen.height + ',top=0,left=0');
+            
+            // 监听窗口关闭
+            var checkClosed = setInterval(function() {
+                if (_lockWindow && _lockWindow.closed) {
+                    clearInterval(checkClosed);
+                    console.log('[Web Adapter] Lock window closed');
+                    stopSound();
+                    window.triggerIPC('lock-closed');
+                    _lockWindow = null;
+                }
+            }, 500);
+        };
+        
+        window.ReminderModule.closeLockScreen = function() {
+            if (_lockWindow && !_lockWindow.closed) {
+                _lockWindow.close();
+            }
+            _lockWindow = null;
+            stopSound();
+        };
+        
+        window.ReminderModule.isCurrentlyLocked = function() {
+            return _lockWindow && !_lockWindow.closed;
+        };
+        
+        window.ReminderModule.resetLockStates = function() {};
+        
+        return true;
+    };
+    
+    if (window.ReminderModule) {
+        fixReminder();
+    } else {
+        var checkCount = 0;
+        var checkInterval = setInterval(function() {
+            checkCount++;
+            if (window.ReminderModule) {
+                fixReminder();
+                clearInterval(checkInterval);
+            } else if (checkCount > 50) {
+                clearInterval(checkInterval);
+            }
+        }, 100);
+    }
+    
+    // ========== 确保 Config 有 updateNotificationHint ==========
+    if (window.Config && !window.Config.updateNotificationHint) {
+        window.Config.updateNotificationHint = function(type) {
+            var hintEl = document.getElementById('notificationHint');
+            if (hintEl) {
+                hintEl.innerHTML = type === 'desktop' 
+                    ? '💡 桌面通知：仅弹窗提醒，不锁屏' 
+                    : '💡 锁屏通知：全屏锁屏，强制休息';
+            }
+        };
+    }
+    
+    // ========== 禁用 Service Worker ==========
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register = function() {
             return Promise.reject(new Error('Service Worker disabled'));
@@ -163,11 +343,14 @@ fs.writeFileSync(path.join(DOCS_DIR, '.nojekyll'), '');
 fs.writeFileSync(path.join(DOCS_DIR, 'robots.txt'), `User-agent: *
 Allow: /
 `);
-console.log('  ✅ .nojekyll, robots.txt');
+// 创建 CNAME 文件
+fs.writeFileSync(path.join(DOCS_DIR, 'CNAME'), 'clock.pengline.cn');
+console.log('  ✅ .nojekyll, robots.txt, CNAME');
 
 console.log('\n✨ Web build complete!');
 console.log(`📂 Output: ${DOCS_DIR}`);
-console.log('🌐 Test: npx serve docs\n');
+console.log('🌐 Domain: clock.pengline.cn');
+console.log('🧪 Test: npx serve docs\n');
 
 // ========== 辅助函数 ==========
 
@@ -187,41 +370,71 @@ function copyRecursive(src, dest) {
     }
 }
 
-
 function processHTML(html, type) {
-    // 1. 插入 Web 适配脚本（在所有脚本之前）
+    // 1. 插入 Web 适配脚本
     html = html.replace(
         /<script src="\.\/js\/shared\/constants\.js">/,
         '<script src="./js/web-adapter.js"></script>\n    <script src="./js/shared/constants.js">'
     );
 
-    // 2. 添加 Web 提示条（固定定位，不影响原有布局）
+    // 2. 添加 Web 提示条（放在 body 最顶部，所有内容之上）
     const webNotice = `
-    <div style="position: fixed; top: 0; left: 0; right: 0; width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; padding: 8px 16px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 16px; z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.1); box-sizing: border-box;">
-        <span>⚡ Web 演示版 · 完整功能请下载桌面版</span>
-        <a href="https://github.com/neopen/active-break-clock/releases" target="_blank" style="background: white; color: #667eea; padding: 4px 16px; border-radius: 20px; text-decoration: none; font-weight: 600; font-size: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">📥 下载</a>
-    </div>
-    <div style="height: 40px;"></div>`;
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; padding: 8px 16px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 16px; position: fixed; top: 0; left: 0; right: 0; z-index: 10000; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <span>⚡ Web 演示版 - 完整功能请下载桌面版</span>
+        <a href="https://github.com/neopen/active-break-clock/releases" target="_blank" style="background: white; color: #667eea; padding: 4px 16px; border-radius: 20px; text-decoration: none; font-weight: 600; font-size: 12px;">📥 下载</a>
+    </div>`;
 
-    // 将提示条插入到 body 开始标签之后，并添加一个占位 div
     html = html.replace('<body>', '<body>\n' + webNotice);
 
-    // 3. 移除原有的下载桌面版链接（在 status-bar-right 中）
+    // 添加顶部内边距，防止内容被固定提示条遮挡
+    if (type === 'index') {
+        html = html.replace(
+            '<div class="app-container">',
+            '<div class="app-container" style="padding-top: 45px;">'
+        );
+    }
+    if (type === 'lock') {
+        html = html.replace(
+            '<body>',
+            '<body style="padding-top: 45px;">'
+        );
+    }
+
+    // 3. 移除原有的下载桌面版链接
     html = html.replace(
         /<div class="status-bar-right">[\s\S]*?<\/div>/g,
         '<div class="status-bar-right"></div>'
     );
 
     // 4. 添加 Web 模式标识
-    html = html.replace('<body>', '<body data-mode="web">');
+    html = html.replace('<body', '<body data-mode="web"');
 
-    // 5. 处理 lock.html 特殊情况
+    // 5. 处理 lock.html
     if (type === 'lock') {
-        // 确保 lock.html 中的脚本在 Web 环境下正常工作
         html = html.replace(
             /if\s*\(\s*typeof\s+window\s*!==\s*'undefined'\s*&&\s*window\.require\s*\)\s*\{/g,
-            'if (false) { // Web: Electron IPC disabled'
+            'if (false) {'
         );
+
+        const lockScript = `
+    <script>
+        (function() {
+            var originalClose = window.closeLockWindow;
+            window.closeLockWindow = function() {
+                if (window.opener && window.opener.triggerIPC) {
+                    window.opener.triggerIPC('lock-closed');
+                    window.opener.triggerIPC('stop-sound');
+                }
+                if (originalClose) originalClose();
+                window.close();
+            };
+            if (window.top !== window.self) {
+                window.top.location = window.self.location;
+            }
+        })();
+    </script>`;
+
+        html = html.replace('</body>', lockScript + '\n</body>');
     }
 
     return html;
