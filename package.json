@@ -4,15 +4,14 @@
   "description": "一款强制锁屏的健康提醒应用，帮你打破久坐循环，养成定时活动的好习惯。",
   "main": "dist/main/main.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "dev": "electron .",
+    "build": "node scripts/build.js",
     "start": "electron .",
     "dist": "npm run build && electron-builder --win --x64",
     "dist:win": "npm run build && electron-builder --win --x64",
-    "dist:nsis": "npm run build && electron-builder --win --x64",
     "dist:portable": "npm run build && electron-builder --win --x64 --config.win.target=portable",
     "build:web": "node scripts/build-web.js",
-    "clean": "rd /s /q dist release node_modules 2>nul & del /f /q package-lock.json 2>nul"
+    "clean": "rd /s /q dist release 2>nul"
   },
   "repository": {
     "type": "git",

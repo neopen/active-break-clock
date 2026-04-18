@@ -11,7 +11,7 @@ directories:
 
 # 严格白名单（合法列表语法）
 files:
-  - 'dist/main/**/*'           # 只包含必要的
+  - 'dist/main/**/*'
   - 'dist/preload/**/*'
   - 'dist/renderer/**/*'
   - '!dist/**/*.map'

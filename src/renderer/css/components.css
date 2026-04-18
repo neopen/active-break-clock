@@ -430,3 +430,77 @@ input:checked+.slider:before {
 #lockSettingsContent[style*="display: block"] {
     opacity: 1;
 }
+
+
+/* 免打扰样式 */
+.breaks-list {
+    margin-top: 8px;
+}
+
+.break-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f1f5f9;
+    padding: 8px 12px;
+    border-radius: 16px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.break-item input {
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 6px 8px;
+    font-size: 13px;
+}
+
+.break-item .break-name {
+    flex: 1;
+    min-width: 60px;
+}
+
+.break-item .break-start,
+.break-item .break-end {
+    width: 85px;
+}
+
+.break-item .remove-break {
+    background: #ef4444;
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.break-item .remove-break:active {
+    transform: scale(0.95);
+}
+
+.add-break-btn {
+    background: #667eea;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 20px;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: auto;
+}
+
+.add-break-btn:active {
+    transform: scale(0.95);
+}
+
+.break-empty {
+    color: #94a3b8;
+    font-size: 12px;
+    text-align: center;
+    padding: 8px;
+}

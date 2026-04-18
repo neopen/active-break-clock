@@ -78,10 +78,20 @@
         }
     });
 
+    // 初始化免打扰设置
+    if (typeof UIController !== 'undefined' && UIController.initDoNotDisturb) {
+        UIController.initDoNotDisturb();
+    }
+
     AudioModule.setLockedGetter(() => ReminderModule.isCurrentlyLocked());
 
     // 初始化 UI 控制器
     UIController.init(elements);
+
+    if (typeof DNDController !== 'undefined') {
+        DNDController.init();
+        logger.info('DNDController initialized');
+    }
 
     // 绑定按钮事件
     elements.startBtn?.addEventListener('click', () => AlarmController.start());

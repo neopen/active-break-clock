@@ -32,6 +32,13 @@ const CONFIG = {
         MAX_LOCK: 30            // 最大锁屏时长（分钟）
     },
 
+    // 免打扰设置
+    DO_NOT_DISTURB: {
+        DEFAULT_LUNCH_START: '12:00',
+        DEFAULT_LUNCH_END: '14:00',
+        MAX_CUSTOM_BREAKS: 5
+    },
+
     // 通知类型
     NOTIFICATION_TYPE: {
         DESKTOP: 'desktop',     // 桌面通知（不锁屏）

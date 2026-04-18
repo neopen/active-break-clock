@@ -5,25 +5,54 @@ export default defineConfig({
     main: {
         build: {
             outDir: 'dist/main',
-            minify: 'esbuild',
+            minify: false,
             rollupOptions: {
                 external: ['electron'],
-                output: { entryFileNames: 'main.js' }
+                output: {
+                    preserveModules: true,
+                    preserveModulesRoot: 'src/main',
+                    format: 'cjs',
+                    entryFileNames: '[name].js',
+                    chunkFileNames: '[name].js'
+                }
             }
         }
     },
     preload: {
-        build: { outDir: 'dist/preload', minify: 'esbuild' }
+        build: {
+            outDir: 'dist/preload',
+            rollupOptions: {
+                output: {
+                    preserveModules: true,
+                    preserveModulesRoot: 'src/preload',
+                    format: 'cjs',
+                    entryFileNames: '[name].js'
+                }
+            }
+        }
     },
     renderer: {
+        // 关键：指定入口文件
         entry: {
             index: resolve(__dirname, 'src/renderer/index.html'),
             lock: resolve(__dirname, 'src/renderer/lock.html')
         },
         build: {
             outDir: 'dist/renderer',
-            minify: 'esbuild',
-            cssCodeSplit: true
+            minify: false,  // 暂时关闭压缩方便调试
+            // 关键：配置 rollupOptions
+            rollupOptions: {
+                input: {
+                    index: resolve(__dirname, 'src/renderer/index.html'),
+                    lock: resolve(__dirname, 'src/renderer/lock.html')
+                },
+                output: {
+                    // 保留目录结构
+                    assetFileNames: 'assets/[name]-[hash][extname]',
+                    chunkFileNames: 'js/[name]-[hash].js',
+                    entryFileNames: 'js/[name]-[hash].js'
+                }
+            }
         }
     }
 })
