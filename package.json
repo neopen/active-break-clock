@@ -6,14 +6,12 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "preview": "electron-vite preview",
     "start": "electron .",
-    "build:web": "node scripts/build-web.js",
-    "deploy:web": "npm run build:web && node scripts/deploy-web.js",
-    "dist": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --win --x64",
     "dist:win": "npm run build && electron-builder --win --x64",
     "dist:nsis": "npm run build && electron-builder --win --x64",
     "dist:portable": "npm run build && electron-builder --win --x64 --config.win.target=portable",
+    "build:web": "node scripts/build-web.js",
     "clean": "rd /s /q dist release node_modules 2>nul & del /f /q package-lock.json 2>nul"
   },
   "repository": {
@@ -44,7 +42,6 @@
   "homepage": "https://github.com/neopen/active-break-clock#readme",
   "type": "commonjs",
   "devDependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.60.1",
     "electron": "^41.2.0",
     "electron-builder": "^26.8.1",
     "electron-vite": "^2.0.0"

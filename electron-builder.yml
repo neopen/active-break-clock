@@ -1,44 +1,23 @@
 appId: com.neopen.activebreakclock
-productName: HealthClock
-copyright: Copyright © 2026 neopen
+productName: 别坐了
 
-# 仅保留中文语言包（可显著减小安装包体积）
+# 仅保留中文语言包（可省 ~10MB 体积）
 electronLanguages:
   - zh-CN
 
 directories:
-  # 建议与 electron-vite 的编译输出目录(dist)分开，避免文件污染
   output: release
 
-# 注意：使用 electron-vite 时，打包源必须指向编译后的 dist 目录，而非 src
+# 严格白名单：仅打包编译产物，排除所有源码/调试文件
 files:
   - dist/**/*
   - '!dist/**/*.map'
-  - '!**/*.log'
-  - '!**/*.md'
-  - '!**/*.ts'
-  - '!**/node_modules/**'
-
-extraResources:
-  - from: src/renderer/icons/
-    to: icons/
-    filter:
-      - '*.png'
-      - '*.ico'
 
 win:
-  target:
-    - target: nsis
-      arch:
-        - x64
-    - target: portable
-      arch:
-        - x64
+  target: nsis
   icon: src/renderer/icons/icon-256.png
-
-portable:
-  artifactName: HealthClock-${version}-x64-Portable.${ext}
-  requestExecutionLevel: user
+  asar: true
+  compression: maximum
 
 nsis:
   oneClick: false
@@ -50,10 +29,3 @@ nsis:
   runAfterFinish: true
   deleteAppDataOnUninstall: true
   artifactName: HealthClock-${version}-x64-Setup.${ext}
-
-asar: true
-asarUnpack:
-  - '**/*.node'
-compression: maximum
-removePackageScripts: true
-npmRebuild: false
