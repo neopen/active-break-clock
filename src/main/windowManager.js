@@ -27,7 +27,8 @@ function createMainWindow() {
     });
 
     mainWindow.setMenu(null);
-    mainWindow.loadFile('src/renderer/index.html');
+    // mainWindow.loadFile('src/renderer/index.html');
+    mainWindow.loadFile('dist/renderer/index.html');
 
     mainWindow.webContents.on('did-finish-load', () => {
         mainWindow.webContents.setZoomFactor(0.75);
@@ -167,7 +168,10 @@ function createLockWindow(durationSeconds, forceLock) {
         lockWindow.setFullScreenable(true);
     }
 
-    lockWindow.loadFile('src/renderer/lock.html', {
+    // lockWindow.loadFile('src/renderer/lock.html', {
+    //     query: { duration: validDuration, forceLock: forceLock ? 'true' : 'false' }
+    // });
+    lockWindow.loadFile('dist/renderer/lock.html', {
         query: { duration: validDuration, forceLock: forceLock ? 'true' : 'false' }
     });
 
