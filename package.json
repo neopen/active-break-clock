@@ -1,16 +1,16 @@
 {
   "name": "HealthClock",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "一款强制锁屏的健康提醒应用，帮你打破久坐循环，养成定时活动的好习惯。",
-  "main": "dist/main/main.js",
+  "main": "neutralino.config.json",
   "scripts": {
-    "dev": "electron .",
-    "build": "node scripts/build.js",
-    "start": "electron .",
-    "dist": "npm run build && electron-builder --win --x64",
-    "dist:win": "npm run build && electron-builder --win --x64",
-    "dist:portable": "npm run build && electron-builder --win --x64 --config.win.target=portable",
-    "build:web": "node scripts/build-web.js",
+    "dev": "neu run",
+    "start": "neu run",
+    "build": "npm run build:renderer",
+    "dist": "npm run build && neu build",
+    "dist:win": "npm run build && neu build --windows",
+    "dist:mac": "npm run build && neu build --macos",
+    "dist:linux": "npm run build && neu build --linux",
     "clean": "rd /s /q dist release 2>nul"
   },
   "repository": {
@@ -23,7 +23,7 @@
     "stand-up",
     "break-reminder",
     "sedentary",
-    "electron",
+    "neutralino",
     "desktop-app",
     "productivity",
     "wellness",
@@ -41,8 +41,6 @@
   "homepage": "https://github.com/neopen/active-break-clock#readme",
   "type": "commonjs",
   "devDependencies": {
-    "electron": "^41.2.0",
-    "electron-builder": "^26.8.1",
-    "electron-vite": "^2.0.0"
+    "@neutralinojs/lib": "^6.7.0"
   }
 }

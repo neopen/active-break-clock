@@ -4,65 +4,15 @@ const Config = (function () {
     let _listeners = [];
     let _logger = Logger ? Logger.createLogger('Config') : console;
 
-    // 从本地文件加载
-    function loadFromFile() {
-        if (!FileSystemManager || !FileSystemManager.isUsingLocalFile()) return null;
-
-        return ErrorHandler.safeExecute(() => {
-            const fileSystemUtil = FileSystemManager.getFileSystemUtil();
-            if (!fileSystemUtil) return null;
-
-            const filePath = FileSystemManager.buildFilePath(CONFIG.FILES.CONFIG);
-            if (!filePath) return null;
-
-            const data = fileSystemUtil.readFile(filePath);
-            if (data) {
-                const parsedData = JSON.parse(data);
-                _logger.info('Config loaded from file:', parsedData);
-                return parsedData;
-            }
-            return null;
-        }, 'Config.loadFromFile');
-    }
-
-    // 保存到本地文件
-    function saveToFile(data) {
-        if (!FileSystemManager || !FileSystemManager.isUsingLocalFile()) return false;
-
-        return ErrorHandler.safeExecute(() => {
-            const fileSystemUtil = FileSystemManager.getFileSystemUtil();
-            if (!fileSystemUtil) return false;
-
-            const filePath = FileSystemManager.buildFilePath(CONFIG.FILES.CONFIG);
-            if (!filePath) return false;
-
-            _logger.info('Config: Attempting to save to:', filePath);
-            const result = fileSystemUtil.writeFile(filePath, JSON.stringify(data, null, 2));
-            if (result) {
-                _logger.info('Config saved to file:', filePath);
-            } else {
-                _logger.error('Config: Failed to save to file:', filePath);
-            }
-            return result;
-        }, 'Config.saveToFile', false);
+    function isNeutralino() {
+        return typeof Neutralino !== 'undefined' && Neutralino.init;
     }
 
     function setElements(elements) {
         _elements = elements;
-        // 初始化文件系统
-        if (FileSystemManager) {
-            FileSystemManager.init();
-        }
     }
 
-
-    function load() {
-        // 初始化文件系统
-        if (FileSystemManager) {
-            FileSystemManager.init();
-        }
-
-        // 使用 CONFIG 常量作为默认值
+    async function load() {
         const defaults = {
             startTime: '08:00',
             endTime: '18:00',
@@ -71,23 +21,31 @@ const Config = (function () {
             forceLock: false,
             soundEnabled: true,
             notificationType: CONFIG ? CONFIG.NOTIFICATION_TYPE.DESKTOP : 'desktop',
-
-            // 免打扰配置
             doNotDisturb: {
                 enabled: false,
                 lunchBreak: {
                     start: CONFIG ? CONFIG.DO_NOT_DISTURB.DEFAULT_LUNCH_START : '12:00',
                     end: CONFIG ? CONFIG.DO_NOT_DISTURB.DEFAULT_LUNCH_END : '14:00'
                 },
-                customBreaks: []  // [{ start: '14:00', end: '15:00', name: '会议' }]
+                customBreaks: []
             }
         };
 
         let saved = null;
 
-        // 优先从本地文件读取
-        if (FileSystemManager && FileSystemManager.isUsingLocalFile()) {
-            saved = loadFromFile();
+        // Neutralino 环境：从 storage 读取
+        if (isNeutralino()) {
+            try {
+                const data = await Neutralino.storage.getData('config');
+                if (data) {
+                    saved = JSON.parse(data);
+                    _logger.info('Config loaded from Neutralino storage');
+                }
+            } catch (e) {
+                if (e.code !== 'NE_ST_NOSTKEX') {
+                    _logger.warn('Failed to load from Neutralino storage:', e);
+                }
+            }
         }
 
         // 回退到 localStorage
@@ -96,6 +54,7 @@ const Config = (function () {
             if (localStorageData) {
                 try {
                     saved = JSON.parse(localStorageData);
+                    _logger.info('Config loaded from localStorage');
                 } catch (e) {
                     _logger.warn('Failed to parse localStorage data:', e);
                 }
@@ -104,7 +63,6 @@ const Config = (function () {
 
         if (saved) {
             _config = { ...defaults, ...saved };
-            // 兼容旧版本：如果有 notificationEnabled 字段，转换为 notificationType
             if (_config.notificationEnabled !== undefined) {
                 if (!_config.notificationType) {
                     _config.notificationType = _config.notificationEnabled ? 'desktop' : 'lock';
@@ -123,12 +81,10 @@ const Config = (function () {
         if (_elements.forceLockToggle) _elements.forceLockToggle.checked = _config.forceLock;
         if (_elements.soundToggle) _elements.soundToggle.checked = _config.soundEnabled;
 
-        // 设置通知类型单选按钮
         if (_elements.desktopNotification && _elements.lockNotification) {
             _elements.desktopNotification.checked = (_config.notificationType === 'desktop');
             _elements.lockNotification.checked = (_config.notificationType === 'lock');
             updateNotificationHint(_config.notificationType);
-
             if (typeof window.toggleLockSettings === 'function') {
                 window.toggleLockSettings(_config.notificationType);
             }
@@ -138,8 +94,7 @@ const Config = (function () {
         return { ..._config };
     }
 
-
-    function save() {
+    async function save() {
         if (!_config) {
             _config = {};
         }
@@ -151,18 +106,23 @@ const Config = (function () {
         if (_elements.forceLockToggle) _config.forceLock = _elements.forceLockToggle.checked;
         if (_elements.soundToggle) _config.soundEnabled = _elements.soundToggle.checked;
 
-        // 保存通知类型
         if (_elements.desktopNotification && _elements.desktopNotification.checked) {
             _config.notificationType = 'desktop';
         } else if (_elements.lockNotification && _elements.lockNotification.checked) {
             _config.notificationType = 'lock';
         }
 
-        // 同时保存到 localStorage 和本地文件
+        // 保存到 localStorage
         localStorage.setItem('healthAlarmConfig', JSON.stringify(_config));
 
-        if (FileSystemManager && FileSystemManager.isUsingLocalFile()) {
-            saveToFile(_config);
+        // Neutralino 环境：同步到 storage
+        if (isNeutralino()) {
+            try {
+                await Neutralino.storage.setData('config', JSON.stringify(_config));
+                _logger.info('Config saved to Neutralino storage');
+            } catch (e) {
+                _logger.error('Failed to save to Neutralino storage:', e);
+            }
         }
 
         _logger.info('Config saved');
@@ -171,7 +131,6 @@ const Config = (function () {
         return { ..._config };
     }
 
-    // 更新通知提示文字
     function updateNotificationHint(type) {
         const hintEl = document.getElementById('notificationHint');
         if (hintEl) {
@@ -182,7 +141,6 @@ const Config = (function () {
             }
         }
     }
-
 
     function get(key) {
         return _config ? _config[key] : null;
@@ -202,8 +160,6 @@ const Config = (function () {
         };
     }
 
-
-    // 校验函数使用 CONFIG 常量
     function validateInterval(value, min, max) {
         const num = parseInt(value);
         const defaultMin = CONFIG ? CONFIG.TIME.MIN_INTERVAL : 10;
@@ -229,7 +185,7 @@ const Config = (function () {
         const defaultInterval = CONFIG ? CONFIG.TIME.DEFAULT_INTERVAL : 40;
         const finalMin = min !== undefined ? min : defaultMin;
         const finalMax = max !== undefined ? max : defaultMax;
-        const finalStep = step !== undefined ? step : 5;  // 步长5分钟
+        const finalStep = step !== undefined ? step : 5;
 
         if (isNaN(num)) return defaultInterval;
         if (num < finalMin) return finalMin;
@@ -251,7 +207,6 @@ const Config = (function () {
         return num;
     }
 
-
     return {
         setElements,
         load,
@@ -267,12 +222,9 @@ const Config = (function () {
     };
 })();
 
-// 导出模块
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Config;
 }
-
-// 导出到全局
 if (typeof window !== 'undefined') {
     window.Config = Config;
 }

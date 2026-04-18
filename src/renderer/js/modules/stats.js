@@ -1,46 +1,10 @@
-// src/renderer/js/modules/stats.js
 const StatsModule = (function () {
     let _stats = null;
     let _listeners = [];
     let _logger = Logger ? Logger.createLogger('Stats') : console;
 
-    // 从本地文件加载
-    function loadFromFile() {
-        if (!FileSystemManager || !FileSystemManager.isUsingLocalFile()) return null;
-
-        return ErrorHandler.safeExecute(() => {
-            const fileSystemUtil = FileSystemManager.getFileSystemUtil();
-            if (!fileSystemUtil) return null;
-
-            const filePath = FileSystemManager.buildFilePath(CONFIG.FILES.STATS);
-            if (!filePath) return null;
-
-            const data = fileSystemUtil.readFile(filePath);
-            if (data) {
-                _logger.info('Loaded from file:', filePath);
-                return JSON.parse(data);
-            }
-            return null;
-        }, 'Stats.loadFromFile');
-    }
-
-    // 保存到本地文件
-    function saveToFile(data) {
-        if (!FileSystemManager || !FileSystemManager.isUsingLocalFile()) return false;
-
-        return ErrorHandler.safeExecute(() => {
-            const fileSystemUtil = FileSystemManager.getFileSystemUtil();
-            if (!fileSystemUtil) return false;
-
-            const filePath = FileSystemManager.buildFilePath(CONFIG.FILES.STATS);
-            if (!filePath) return false;
-
-            const result = fileSystemUtil.writeFile(filePath, JSON.stringify(data, null, 2));
-            if (result) {
-                _logger.info('Saved to file:', filePath);
-            }
-            return result;
-        }, 'Stats.saveToFile', false);
+    function isNeutralino() {
+        return typeof Neutralino !== 'undefined' && Neutralino.init;
     }
 
     // 获取默认统计数据
@@ -49,7 +13,8 @@ const StatsModule = (function () {
             todayCount: 0,
             lastActivityDate: null,
             continuousDays: 0,
-            weeklyRecords: {}
+            weeklyRecords: {},
+            dailyRecords: {}  // 添加 dailyRecords 默认值
         };
     }
 
@@ -95,19 +60,29 @@ const StatsModule = (function () {
         return `${year}-${weekStr}`;
     }
 
+    // 辅助函数：格式化日期
+    function formatDateStr(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
 
     // 加载统计数据
-    function load() {
-        // 初始化文件系统
-        if (FileSystemManager) {
-            FileSystemManager.init();
-        }
-
+    async function load() {
+        const defaults = getDefaultStats();
         let saved = null;
 
-        // 优先从本地文件读取
-        if (FileSystemManager && FileSystemManager.isUsingLocalFile()) {
-            saved = loadFromFile();
+        // Neutralino 环境：从 storage 读取
+        if (isNeutralino()) {
+            try {
+                const data = await Neutralino.storage.getData('stats');
+                if (data) {
+                    saved = JSON.parse(data);
+                    _logger.info('Stats loaded from Neutralino storage');
+                }
+            } catch (e) {
+                if (e.code !== 'NE_ST_NOSTKEX') {
+                    _logger.warn('Failed to load from Neutralino storage:', e);
+                }
+            }
         }
 
         // 回退到 localStorage
@@ -116,25 +91,17 @@ const StatsModule = (function () {
             if (localStorageData) {
                 try {
                     saved = JSON.parse(localStorageData);
-                    _logger.info('Loaded from localStorage');
+                    _logger.info('Stats loaded from localStorage');
                 } catch (e) {
                     _logger.warn('Failed to parse localStorage data:', e);
                 }
             }
         }
 
-        const today = getTodayStr();
-        const yesterday = getYesterdayStr();
-
         if (saved) {
-            try {
-                _stats = typeof saved === 'string' ? JSON.parse(saved) : saved;
-            } catch (e) {
-                _logger.warn('Failed to parse saved data:', e);
-                _stats = getDefaultStats();
-            }
+            _stats = saved;
         } else {
-            _stats = getDefaultStats();
+            _stats = defaults;
         }
 
         // 确保必要字段存在
@@ -150,6 +117,10 @@ const StatsModule = (function () {
         if (typeof _stats.todayCount !== 'number') {
             _stats.todayCount = 0;
         }
+
+        // ✅ 修复：先定义 today 和 yesterday
+        const today = getTodayStr();
+        const yesterday = getYesterdayStr();
 
         // 检查是否需要处理新的一天
         if (_stats.lastActivityDate !== today) {
@@ -182,7 +153,7 @@ const StatsModule = (function () {
             _logger.info('=======================');
 
             // 保存更新后的状态
-            save();
+            await save();
         } else {
             _logger.info('Same day, no reset needed. todayCount:', _stats.todayCount);
         }
@@ -191,9 +162,27 @@ const StatsModule = (function () {
         return { ..._stats };
     }
 
+    // 保存统计数据
+    async function save() {
+        // 保存到 localStorage
+        localStorage.setItem('activeBreakClockStats', JSON.stringify(_stats));
+
+        // Neutralino 环境：同步到 storage
+        if (isNeutralino()) {
+            try {
+                await Neutralino.storage.setData('stats', JSON.stringify(_stats));
+                _logger.info('Stats saved to Neutralino storage');
+            } catch (e) {
+                _logger.error('Failed to save to Neutralino storage:', e);
+            }
+        }
+
+        _logger.info('Saved stats');
+        _listeners.forEach(fn => fn({ ..._stats }));
+    }
 
     // 记录活动
-    function recordActivity() {
+    async function recordActivity() {
         if (!_stats) {
             _logger.error('Stats not initialized');
             return null;
@@ -271,7 +260,7 @@ const StatsModule = (function () {
         _logger.info('Final - lastActivityDate:', _stats.lastActivityDate);
         _logger.info('=======================================');
 
-        save();
+        await save();
 
         // 强制触发 UI 更新
         if (typeof UIModule !== 'undefined' && UIModule.updateStatsDisplay) {
@@ -285,23 +274,6 @@ const StatsModule = (function () {
 
         return { ..._stats };
     }
-
-
-    // 保存统计数据
-    function save() {
-        // 保存到 localStorage
-        localStorage.setItem('activeBreakClockStats', JSON.stringify(_stats));
-
-        // 保存到本地文件
-        if (FileSystemManager && FileSystemManager.isUsingLocalFile()) {
-            saveToFile(_stats);
-        }
-
-        _logger.info('Saved stats');
-        _listeners.forEach(fn => fn({ ..._stats }));
-    }
-
-
 
     // 获取本周完成率（每天按实际完成比例计算）
     // 每天占比 = MIN(实际打卡次数 / 10, 1) × 20%
@@ -365,12 +337,6 @@ const StatsModule = (function () {
 
         return finalRate;
     }
-
-    // 辅助函数：格式化日期
-    function formatDateStr(date) {
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    }
-
 
     // 获取本周目标次数
     function getWeeklyTarget() {

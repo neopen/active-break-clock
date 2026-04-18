@@ -131,8 +131,16 @@ const ReminderModule = (function () {
             AudioModule.stopContinuous();
         }
 
-        // 检测是否在 Electron 环境中
-        if (typeof window !== 'undefined' && window.require) {
+        // 检测是否在 Neutralinojs 环境中
+        if (typeof Neutralino !== 'undefined') {
+            try {
+                console.log('[REMINDER] Sending hide-lock via Neutralino events');
+                Neutralino.events.dispatch('hide-lock');
+            } catch (e) {
+                console.error('[REMINDER] Failed to send hide-lock via Neutralino:', e);
+            }
+        } else if (typeof window !== 'undefined' && window.require) {
+            // 兼容 Electron 环境
             try {
                 const { ipcRenderer } = window.require('electron');
                 console.log('[REMINDER] Sending hide-lock to main process');
@@ -191,8 +199,23 @@ const ReminderModule = (function () {
         const totalSeconds = minutes * 60;
         console.log('[REMINDER] Converting', minutes, 'minutes to', totalSeconds, 'seconds');
 
-        // 检测是否在 Electron 环境中
-        if (typeof window !== 'undefined' && window.require) {
+        // 检测是否在 Neutralinojs 环境中
+        if (typeof Neutralino !== 'undefined') {
+            try {
+                console.log('[REMINDER] Setting isLocked to true');
+                isLocked = true;
+                console.log('[REMINDER] Sending show-lock via Neutralino events, durationSeconds:', totalSeconds, 'forceLock:', forceLock);
+                Neutralino.events.dispatch('show-lock', { duration: totalSeconds, forceLock: forceLock });
+                return;
+            } catch (e) {
+                console.error('[REMINDER] Failed to send show-lock via Neutralino:', e);
+                console.log('[REMINDER] Resetting states after error: isLocked=false, isCreatingLock=false, pendingLock=false');
+                isLocked = false;
+                isCreatingLock = false;
+                pendingLock = false;
+            }
+        } else if (typeof window !== 'undefined' && window.require) {
+            // 兼容 Electron 环境
             try {
                 const { ipcRenderer } = window.require('electron');
 
@@ -201,11 +224,6 @@ const ReminderModule = (function () {
                 // 传递秒数给主进程
                 console.log('[REMINDER] Sending show-lock to main process, durationSeconds:', totalSeconds, 'forceLock:', forceLock);
                 ipcRenderer.send('show-lock', totalSeconds, forceLock);
-
-                // 注意：在 Electron 环境中，我们不在这里监听事件
-                // 而是在 app.js 中通过 ipcRenderer.on('lock-closed') 来处理
-                // 因为 lock-complete 事件是从 lock.html 发送的，不同窗口间无法直接通信
-                console.log('[REMINDER] Electron environment: lock-closed event will be handled in app.js');
                 return;
             } catch (e) {
                 console.error('[REMINDER] Failed to send show-lock:', e);
@@ -406,7 +424,9 @@ const ReminderModule = (function () {
 
         if (isLocked) {
             console.log('[REMINDER] Lock active, sending hide-lock');
-            if (typeof window !== 'undefined' && window.require) {
+            if (typeof Neutralino !== 'undefined') {
+                Neutralino.events.dispatch('hide-lock');
+            } else if (typeof window !== 'undefined' && window.require) {
                 try {
                     const { ipcRenderer } = window.require('electron');
                     ipcRenderer.send('hide-lock');
@@ -418,9 +438,6 @@ const ReminderModule = (function () {
             pendingLock = false;
             isCreatingLock = false;
         }
-
-        // 注意：不要重置 nextReminderTimestamp，否则会导致下一次提醒无法触发
-        // nextReminderTimestamp = null;
     }
 
     let mainIntervalId = null;

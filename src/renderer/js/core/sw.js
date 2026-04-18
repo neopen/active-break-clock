@@ -2,18 +2,18 @@
 const CACHE_NAME = 'health-alarm-v1.0.0';
 const urlsToCache = [
   './',
-  '../index.html',
-  '/manifest.json',
-  '../../css/base.css',
-  '../../css/components.css',
-  '../../css/lock.css',
-  '../models/config.js',
-  '../models/audio.js',
-  '../models/notification.js',
-  '../models/stats.js',
-  '../models/reminder.js',
-  '../models/ui.js',
-  './app.js'
+  'index.html',
+  'manifest.json',
+  'css/base.css',
+  'css/components.css',
+  'css/lock.css',
+  'js/modules/config.js',
+  'js/modules/audio.js',
+  'js/modules/notification.js',
+  'js/modules/stats.js',
+  'js/modules/reminder.js',
+  'js/modules/ui.js',
+  'js/core/app.js'
 ];
 
 // 安装 Service Worker

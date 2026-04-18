@@ -19,12 +19,7 @@ copyDir(
     path.join(distDir, 'main')
 );
 
-// 3. 复制预加载
-console.log('\n📦 Copying preload...');
-copyDir(
-    path.join(__dirname, '../src/preload'),
-    path.join(distDir, 'preload')
-);
+// 3. Neutralinojs 不需要 preload 脚本，跳过
 
 // 4. 复制渲染进程（完整复制）
 console.log('\n📦 Copying renderer...');

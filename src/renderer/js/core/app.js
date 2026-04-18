@@ -6,12 +6,6 @@
 
     logger.info('=== App Initialization ===');
 
-    // 手动初始化文件系统
-    if (typeof FileSystemManager !== 'undefined') {
-        FileSystemManager.init();
-        logger.info('FileSystemManager initialized, using local file:', FileSystemManager.isUsingLocalFile());
-    }
-
     // DOM 元素收集
     const elements = {
         startTime: document.getElementById('startTime'),
@@ -57,7 +51,7 @@
     ReminderModule.setCallbacks({
         onReminderTrigger: async (notificationType) => {
             logger.info('Reminder triggered, type:', notificationType);
-            const result = StatsModule.recordActivity();
+            const result = await StatsModule.recordActivity();
             console.log('[App] StatsModule.recordActivity result:', result);
 
             if (notificationType === 'desktop') {
@@ -68,7 +62,7 @@
             logger.info('Lock closed, rescheduling');
             if (ReminderModule.isReminderRunning()) {
                 const now = new Date();
-                const config = Config.load();
+                const config = Config.load(); // 同步获取，因为 Config 已缓存
                 const next = ReminderModule.calculateNextReminder(now, config);
                 ReminderModule.setNextReminderTime(next.getTime());
                 UIModule.updateNextReminderDisplay(next.getTime());
@@ -104,138 +98,98 @@
      * 注册 Service Worker（带环境检测和错误处理）
      */
     async function registerServiceWorker() {
-        // 检查是否支持 Service Worker
         if (!('serviceWorker' in navigator)) {
             logger.info('Service Worker not supported by browser');
             return false;
         }
 
-        // 检查是否在 Electron 环境中（Electron 有自己的更新机制）
-        if (window.require) {
-            logger.info('Running in Electron environment, skipping Service Worker');
+        // Neutralino 和 Electron 环境跳过 Service Worker
+        if (typeof Neutralino !== 'undefined' || window.require) {
+            logger.info('Running in desktop environment, skipping Service Worker');
             return false;
         }
 
-        // 检查协议是否支持 Service Worker
         const supportedProtocols = ['http:', 'https:'];
         const currentProtocol = window.location.protocol;
 
         if (!supportedProtocols.includes(currentProtocol)) {
-            logger.warn('Service Worker registration skipped: Unsupported protocol', {
-                protocol: currentProtocol,
-                reason: 'Service Worker requires HTTP/HTTPS protocol'
-            });
+            logger.warn('Service Worker registration skipped: Unsupported protocol');
             return false;
-        }
-
-        // 检查是否是安全上下文（HTTPS 或 localhost）
-        if (!window.isSecureContext && currentProtocol === 'https:') {
-            logger.warn('Service Worker registration may fail: Not a secure context');
         }
 
         try {
-            // 检查 Service Worker 文件是否存在
-            const swResponse = await fetch('./sw.js', { method: 'HEAD' });
-            if (!swResponse.ok) {
-                throw new Error(`Service Worker file not found (${swResponse.status})`);
-            }
-
-            // 注册 Service Worker
             const registration = await navigator.serviceWorker.register('./sw.js', {
                 scope: './'
             });
-
-            logger.info('Service Worker registered successfully:', {
-                scope: registration.scope,
-                state: registration.installing?.state || registration.waiting?.state || registration.active?.state
-            });
-
-            // 监听更新
-            registration.addEventListener('updatefound', () => {
-                const newWorker = registration.installing;
-                logger.info('Service Worker update found:', newWorker.state);
-
-                newWorker.addEventListener('statechange', () => {
-                    logger.info('Service Worker state changed:', newWorker.state);
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        logger.info('New Service Worker available, please refresh');
-                        // 可选：显示更新提示
-                        if (typeof AutoCloseDialog !== 'undefined') {
-                            AutoCloseDialog.show({
-                                title: '应用更新',
-                                message: '发现新版本，请刷新页面以获取最新功能',
-                                autoClose: 5000,
-                                confirmColor: '#3b82f6'
-                            });
-                        }
-                    }
-                });
-            });
-
+            logger.info('Service Worker registered successfully');
             return true;
         } catch (error) {
-            // 只记录非预期的错误，协议错误已经在上层过滤
-            if (error.message && !error.message.includes('protocol')) {
-                logger.error('Service Worker registration failed:', error);
-            } else if (error.message && error.message.includes('fetch')) {
-                logger.warn('Service Worker file not found, skipping registration');
-            }
+            logger.error('Service Worker registration failed:', error);
             return false;
         }
     }
 
-    // 延迟注册 Service Worker，避免影响主应用启动
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => registerServiceWorker(), 1000);
-        });
-    } else {
-        setTimeout(() => registerServiceWorker(), 1000);
-    }
+    // 延迟注册 Service Worker
+    setTimeout(() => registerServiceWorker(), 1000);
 
     // 开机自启动开关
     const autoLaunchToggle = document.getElementById('autoLaunchToggle');
-    if (autoLaunchToggle && window.require) {
-        const { ipcRenderer } = window.require('electron');
+    if (autoLaunchToggle) {
+        if (typeof Neutralino !== 'undefined') {
+            // 获取状态
+            Neutralino.events.on('auto-launch-state', (data) => {
+                autoLaunchToggle.checked = data.detail || false;
+            });
+            Neutralino.events.dispatch('get-auto-launch');
 
-        // 获取当前状态
-        const isAutoLaunch = ipcRenderer.sendSync('get-auto-launch');
-        autoLaunchToggle.checked = isAutoLaunch;
+            // 设置状态
+            autoLaunchToggle.addEventListener('change', async () => {
+                Neutralino.events.dispatch('set-auto-launch', { enable: autoLaunchToggle.checked });
+            });
+        } else if (window.require) {
+            // 兼容 Electron 环境
+            const { ipcRenderer } = window.require('electron');
+            const isAutoLaunch = ipcRenderer.sendSync('get-auto-launch');
+            autoLaunchToggle.checked = isAutoLaunch;
 
-        // 监听开关变化
-        autoLaunchToggle.addEventListener('change', async () => {
-            const result = ipcRenderer.sendSync('set-auto-launch', autoLaunchToggle.checked);
-            if (!result) {
-                autoLaunchToggle.checked = !autoLaunchToggle.checked;
-                // 可选：显示错误提示
-                if (typeof AutoCloseDialog !== 'undefined') {
-                    AutoCloseDialog.show({
-                        title: '设置失败',
-                        message: '无法设置开机自启动，请检查权限',
-                        autoClose: 2000,
-                        confirmColor: '#ef4444'
-                    });
+            autoLaunchToggle.addEventListener('change', () => {
+                const result = ipcRenderer.sendSync('set-auto-launch', autoLaunchToggle.checked);
+                if (!result) {
+                    autoLaunchToggle.checked = !autoLaunchToggle.checked;
+                    if (typeof AutoCloseDialog !== 'undefined') {
+                        AutoCloseDialog.show({
+                            title: '设置失败',
+                            message: '无法设置开机自启动，请检查权限',
+                            autoClose: 2000,
+                            confirmColor: '#ef4444'
+                        });
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
-    // 加载配置和统计数据
-    Config.load();
-    Config.save();
-    StatsModule.load();
-    StatsModule.save();
-    StatsModule.fixContinuousDays();
+    // 异步初始化主应用
+    (async () => {
+        // 加载配置和统计数据
+        await Config.load();
+        await Config.save();
+        await StatsModule.load();
+        await StatsModule.save();
+        StatsModule.fixContinuousDays();
 
-    // 根据当前通知类型设置锁屏设置显示状态
-    UIController.toggleLockSettings(Config.get('notificationType'));
+        // 根据当前通知类型设置锁屏设置显示状态
+        UIController.toggleLockSettings(Config.get('notificationType'));
 
-    // 初始化 UI
-    UIController.fixValues();
-    UIModule.initStatsSubscription();
-    UIModule.updateUI(false);
-    ReminderModule.closeLockScreen();
-    NotificationModule.initWithoutWait();
+        // 初始化 UI
+        UIController.fixValues();
+        UIModule.initStatsSubscription();
+        UIModule.updateUI(false);
+        ReminderModule.closeLockScreen();
+        NotificationModule.initWithoutWait();
+
+        logger.info('App initialized successfully');
+    })();
 
     // 页面关闭提醒
     window.addEventListener('beforeunload', (e) => {
@@ -251,8 +205,22 @@
         UIModule.updateStatsDisplay(event.detail);
     });
 
-    // Electron IPC 监听
-    if (window.require) {
+    // 监听事件 (Neutralinojs 或 Electron)
+    if (typeof Neutralino !== 'undefined') {
+        Neutralino.events.on('stop-sound', () => AudioModule.stopContinuous());
+        Neutralino.events.on('lock-closed', () => {
+            ReminderModule.resetLockStates();
+            if (ReminderModule.isReminderRunning()) {
+                const now = new Date();
+                const config = Config.load();
+                const next = ReminderModule.calculateNextReminder(now, config);
+                ReminderModule.setNextReminderTime(next.getTime());
+                UIModule.updateNextReminderDisplay(next.getTime());
+            }
+            ReminderModule.startCheckLoop();
+            AudioModule.stopContinuous();
+        });
+    } else if (window.require) {
         try {
             const { ipcRenderer } = window.require('electron');
             ipcRenderer.on('stop-sound', () => AudioModule.stopContinuous());
@@ -272,6 +240,4 @@
             logger.error('Failed to setup IPC listener:', e);
         }
     }
-
-    logger.info('App initialized successfully');
 })();

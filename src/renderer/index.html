@@ -36,16 +36,22 @@
     <meta name="twitter:image" content="https://clock.pengline.cn/icons/twitter-image.png">
 
     <!-- 图标 -->
-    <link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="./icons/icon-48.png">
-    <link rel="icon" type="image/png" sizes="48x48" href="./icons/icon-48.png">
-    <link rel="icon" type="image/png" sizes="128x128" href="./icons/icon-128.png">
-    <link rel="icon" type="image/png" sizes="256x256" href="./icons/icon-256.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-48.png">
+    <link rel="icon" type="image/png" sizes="48x48" href="icons/icon-48.png">
+    <link rel="icon" type="image/png" sizes="128x128" href="icons/icon-128.png">
+    <link rel="icon" type="image/png" sizes="256x256" href="icons/icon-256.png">
 
     <title>别坐了 - 起来走走 - 拒绝久坐</title>
-    <link rel="stylesheet" href="./css/base.css">
-    <link rel="stylesheet" href="./css/components.css">
-    <link rel="stylesheet" href="./css/lock.css">
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/lock.css">
+    
+    <!-- Neutralinojs Client -->
+    <!-- <script src="https://unpkg.com/@neutralinojs/lib@6.7.0"></script> -->
+    <script src="js/lib/neutralino.js"></script>
+    
 </head>
 
 <body>
@@ -287,37 +293,58 @@
 		</div>
 	</div> -->
 
+        <script>
+            (async function() {
+                try {
+                    await Neutralino.init();
+                    console.log('Neutralino initialized successfully');
+                    
+                    // 设置托盘菜单事件
+                    Neutralino.events.on('showMainWindow', () => {
+                        Neutralino.window.show();
+                        Neutralino.window.focus();
+                    });
+                    
+                    Neutralino.events.on('exitApp', () => {
+                        Neutralino.app.exit();
+                    });
+                } catch (err) {
+                    console.error('Failed to initialize Neutralino:', err);
+                }
+            })();
+        </script>
+
         <!-- 共享模块 -->
-        <script src="./js/shared/constants.js"></script>
-        <script src="./js/shared/logger.js"></script>
-        <script src="./js/shared/errorHandler.js"></script>
-        <script src="./js/shared/fs-util.js"></script>
-        <script src="./js/shared/fileSystemManager.js"></script>
+        <script src="js/shared/constants.js"></script>
+        <script src="js/shared/logger.js"></script>
+        <script src="js/shared/errorHandler.js"></script>
+        <script src="js/shared/fs-util.js"></script>
+        <script src="js/shared/fileSystemManager.js"></script>
 
         <!-- 对话框模块 -->
-        <script src="./js/dialogs/confirmDialog.js"></script>
-        <script src="./js/dialogs/autoCloseDialog.js"></script>
-        <script src="./js/dialogs/lockConfirmDialog.js"></script>
+        <script src="js/dialogs/confirmDialog.js"></script>
+        <script src="js/dialogs/autoCloseDialog.js"></script>
+        <script src="js/dialogs/lockConfirmDialog.js"></script>
 
         <!-- 功能模块 -->
-        <script src="./js/modules/storage.js"></script>
-        <script src="./js/modules/config.js"></script>
-        <script src="./js/modules/audio.js"></script>
-        <script src="./js/modules/notification.js"></script>
-        <script src="./js/modules/stats.js"></script>
-        <script src="./js/modules/reminder.js"></script>
-        <script src="./js/modules/ui.js"></script>
+        <script src="js/modules/storage.js"></script>
+        <script src="js/modules/config.js"></script>
+        <script src="js/modules/audio.js"></script>
+        <script src="js/modules/notification.js"></script>
+        <script src="js/modules/stats.js"></script>
+        <script src="js/modules/reminder.js"></script>
+        <script src="js/modules/ui.js"></script>
 
         <!-- 控制器模块 -->
-        <script src="./js/controllers/uiController.js"></script>
-        <script src="./js/controllers/dndController.js"></script>
-        <script src="./js/controllers/alarmController.js"></script>
-        <script src="./js/controllers/lockController.js"></script>
-        <script src="./js/controllers/statsController.js"></script>
-        <script src="./js/controllers/notificationTester.js"></script>
+        <script src="js/controllers/uiController.js"></script>
+        <script src="js/controllers/dndController.js"></script>
+        <script src="js/controllers/alarmController.js"></script>
+        <script src="js/controllers/lockController.js"></script>
+        <script src="js/controllers/statsController.js"></script>
+        <script src="js/controllers/notificationTester.js"></script>
 
         <!-- 主应用 -->
-        <script src="./js/core/app.js"></script>
+        <script src="js/core/app.js"></script>
 </body>
 
 </html>

@@ -440,7 +440,7 @@
                 });
             }
 
-            function closeLockWindow() {
+            async function closeLockWindow() {
                 if (isClosed) {
                     console.log('[LOCK] Already closed, skipping');
                     return;
@@ -454,14 +454,22 @@
                     timerInterval = null;
                 }
 
-                // 使用 Electron IPC 发送关闭信号
-                if (typeof window !== 'undefined' && window.require) {
+                // 使用 Neutralino 事件发送关闭信号
+                if (typeof Neutralino !== 'undefined' && Neutralino.events) {
                     try {
-                        const { ipcRenderer } = window.require('electron');
-                        console.log('[LOCK] Sending lock-complete to main process');
-                        ipcRenderer.send('lock-complete');
+                        console.log('[LOCK] Sending lock-complete via Neutralino events');
+                        await Neutralino.events.dispatch('lock-complete');
                     } catch (e) {
                         console.error('[LOCK] Failed to send lock-complete:', e);
+                    }
+                }
+
+                // 关闭窗口
+                if (typeof Neutralino !== 'undefined' && Neutralino.window) {
+                    try {
+                        await Neutralino.window.close();
+                    } catch (e) {
+                        console.error('[LOCK] Failed to close window:', e);
                     }
                 }
             }

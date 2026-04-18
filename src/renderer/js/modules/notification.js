@@ -3,16 +3,24 @@ const NotificationModule = (function () {
     let permissionGranted = false;
     let _logger = typeof Logger !== 'undefined' ? Logger.createLogger('Notification') : console;
 
+    function isNeutralino() {
+        return typeof Neutralino !== 'undefined';
+    }
+
     function isElectron() {
-        return typeof window !== 'undefined' && !!window.require;
+        return typeof window !== 'undefined' && !!window.require && !isNeutralino();
     }
 
     async function init() {
         _logger.info('NotificationModule.init called');
 
+        if (isNeutralino()) {
+            permissionGranted = true;
+            _logger.info('Neutralino environment detected, setting permissionGranted = true');
+            return true;
+        }
+
         if (isElectron()) {
-            // 在 Electron 环境中，直接设为 true，因为主进程有权限
-            // 不需要通过 IPC 请求权限
             _logger.info('Electron environment detected, setting permissionGranted = true');
             permissionGranted = true;
             return true;
@@ -50,6 +58,12 @@ const NotificationModule = (function () {
 
     function initWithoutWait() {
         _logger.info('NotificationModule.initWithoutWait called');
+
+        if (isNeutralino()) {
+            _logger.info('Neutralino environment, setting permissionGranted = true');
+            permissionGranted = true;
+            return;
+        }
 
         if (isElectron()) {
             _logger.info('Electron environment, setting permissionGranted = true');
@@ -89,11 +103,29 @@ const NotificationModule = (function () {
         _logger.info('Options:', options);
         _logger.info('isEnabled:', isEnabled);
         _logger.info('permissionGranted:', permissionGranted);
+        _logger.info('isNeutralino:', isNeutralino());
         _logger.info('isElectron:', isElectron());
 
         if (!isEnabled) {
             _logger.info('Notifications disabled in settings');
             return false;
+        }
+
+        // 在 Neutralinojs 环境中发送通知
+        if (isNeutralino()) {
+            try {
+                const notificationOptions = {
+                    title: title,
+                    body: options.body || ''
+                };
+                _logger.info('Sending via Neutralino:', notificationOptions);
+                await Neutralino.os.showNotification(title, options.body || '');
+                _logger.info('Neutralino notification sent successfully');
+                return true;
+            } catch (e) {
+                _logger.error('Failed to send notification via Neutralino:', e);
+                return false;
+            }
         }
 
         // 在 Electron 环境中，通过主进程发送通知
