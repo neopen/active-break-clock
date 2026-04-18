@@ -1,0 +1,14 @@
+node_modules/
+dist/
+release/
+*.log
+*.map
+.git/
+.github/
+scripts/
+docs/
+test/
+*.md
+*.ts
+*.po
+*.mo

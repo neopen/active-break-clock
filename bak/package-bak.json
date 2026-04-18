@@ -1,0 +1,121 @@
+{
+  "name": "HealthClock",
+  "version": "0.5.3",
+  "description": "一款强制锁屏的健康提醒应用，帮你打破久坐循环，养成定时活动的好习惯。",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "build:win": "electron-builder --win --x64",
+    "clean": "rmdir /s /q dist node_modules",
+    "build:web": "node scripts/build-web.js",
+    "deploy:web": "npm run build:web && node scripts/deploy-web.js",
+    "serve:web": "npx serve docs",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "compress": "compress.bat"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neopen/active-break-clock.git"
+  },
+  "keywords": [
+    "health",
+    "reminder",
+    "stand-up",
+    "break-reminder",
+    "sedentary",
+    "electron",
+    "desktop-app",
+    "productivity",
+    "wellness",
+    "ergonomic"
+  ],
+  "author": {
+    "name": "neopen",
+    "email": "helpenx+clock@gmail.com",
+    "url": "https://github.com/neopen"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/neopen/active-break-clock/issues"
+  },
+  "homepage": "https://github.com/neopen/active-break-clock#readme",
+  "type": "commonjs",
+  "build": {
+    "appId": "com.neopen.activebreakclock",
+    "productName": "HealthClock",
+    "copyright": "Copyright © 2026 neopen",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "!src/renderer/icons/**/*",
+      "!**/node_modules/**/*",
+      "!**/node_modules",
+      "!node_modules/**/*",
+      "!node_modules",
+      "!**/*.log",
+      "!**/*.map",
+      "!**/*.md",
+      "!**/*.ts",
+      "!**/*.po",
+      "!**/*.mo",
+      "!**/*.test.js",
+      "!**/*.spec.js",
+      "!**/docs/**/*",
+      "!**/scripts/**/*",
+      "!**/test/**/*",
+      "!**/imgs/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "src/renderer/icons/icon-256.png",
+        "to": "icons/icon-256.png"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/renderer/icons/icon-256.png"
+    },
+    "portable": {
+      "artifactName": "HealthClock-${version}-x64-Portable.exe",
+      "requestExecutionLevel": "user"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "别坐了",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": true,
+      "artifactName": "HealthClock-${version}-x64-Setup.${ext}"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "compression": "maximum",
+    "removePackageScripts": true,
+    "npmRebuild": false
+  },
+  "devDependencies": {
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1"
+  }
+}
