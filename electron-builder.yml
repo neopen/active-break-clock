@@ -1,24 +1,34 @@
+# 根级别配置（官方文档：https://www.electron.build/configuration）
 appId: com.neopen.activebreakclock
 productName: 别坐了
+copyright: Copyright © 2026 neopen
 
-# 仅保留中文语言包（可省 ~10MB 体积）
+# 仅保留中文语言包（可省 ~10MB，官方支持属性）
 electronLanguages:
   - zh-CN
 
 directories:
   output: release
 
-# 严格白名单：仅打包编译产物，排除所有源码/调试文件
+# 严格白名单：仅打包编译产物（官方支持属性）
 files:
   - dist/**/*
   - '!dist/**/*.map'
+  - '!**/*.log'
+  - '!**/*.md'
+  - '!**/*.ts'
 
+# Windows 平台配置（官方文档：https://www.electron.build/configuration/win）
 win:
   target: nsis
   icon: src/renderer/icons/icon-256.png
   asar: true
+  # ✅ 唯一合法的压缩配置：压缩 app.asar 和资源文件
   compression: maximum
+  # 避免请求管理员权限（减少用户拦截）
+  requestedExecutionLevel: asInvoker
 
+# NSIS 安装包配置（官方文档：https://www.electron.build/configuration/nsis）
 nsis:
   oneClick: false
   perMachine: true
@@ -28,4 +38,5 @@ nsis:
   shortcutName: 别坐了
   runAfterFinish: true
   deleteAppDataOnUninstall: true
+  # 安装包文件名模板（官方支持占位符）
   artifactName: HealthClock-${version}-x64-Setup.${ext}

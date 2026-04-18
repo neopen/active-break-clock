@@ -1,24 +1,19 @@
-import { defineConfig } from 'electron-vite';
-import { resolve } from 'path';
+import { defineConfig } from 'electron-vite'
+import { resolve } from 'path'
 
 export default defineConfig({
     main: {
-        entry: 'src/main/main.js',
         build: {
             outDir: 'dist/main',
+            minify: 'esbuild',
             rollupOptions: {
-                output: {
-                    entryFileNames: 'main.js'  // 强制输出为 main.js
-                },
-                external: ['electron']
+                external: ['electron'],
+                output: { entryFileNames: 'main.js' }
             }
         }
     },
     preload: {
-        entry: 'src/preload/preload.js',
-        build: {
-            outDir: 'dist/preload'
-        }
+        build: { outDir: 'dist/preload', minify: 'esbuild' }
     },
     renderer: {
         entry: {
@@ -26,7 +21,9 @@ export default defineConfig({
             lock: resolve(__dirname, 'src/renderer/lock.html')
         },
         build: {
-            outDir: 'dist/renderer'
+            outDir: 'dist/renderer',
+            minify: 'esbuild',
+            cssCodeSplit: true
         }
     }
-});
+})
