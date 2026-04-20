@@ -67,8 +67,26 @@
                 logger.info('Lock closed, rescheduling next reminder');
                 if (ReminderModule.isReminderRunning()) {
                     const now = new Date();
-                    // 修复：使用同步缓存读取，避免阻塞主循环
-                    const config = typeof Config !== 'undefined' ? (Config.get('_config') || {}) : {};
+                    // 🔧 修复：正确获取最新配置
+                    let config = {};
+                    if (typeof Config !== 'undefined') {
+                        // 方式1：如果有 getConfig 方法
+                        if (typeof Config.getConfig === 'function') {
+                            config = Config.getConfig();
+                        } else {
+                            // 方式2：逐个获取配置项
+                            config = {
+                                startTime: Config.get('startTime') || '08:00',
+                                endTime: Config.get('endTime') || '18:00',
+                                intervalMinutes: Config.get('intervalMinutes') || 40,
+                                lockMinutes: Config.get('lockMinutes') || 5,
+                                forceLock: Config.get('forceLock') || false,
+                                soundEnabled: Config.get('soundEnabled') !== false,
+                                notificationType: Config.get('notificationType') || 'desktop'
+                            };
+                        }
+                    }
+                    logger.info('[App] Rescheduling with config:', config);
                     const next = ReminderModule.calculateNextReminder(now, config);
                     ReminderModule.setNextReminderTime(next.getTime());
                     if (typeof UIModule !== 'undefined') UIModule.updateNextReminderDisplay(next.getTime());
@@ -207,7 +225,24 @@
             if (typeof ReminderModule !== 'undefined') ReminderModule.resetLockStates();
             if (typeof ReminderModule !== 'undefined' && ReminderModule.isReminderRunning()) {
                 const now = new Date();
-                const config = typeof Config !== 'undefined' ? (Config.get('_config') || {}) : {};
+                // 🔧 修复：正确获取最新配置
+                let config = {};
+                if (typeof Config !== 'undefined') {
+                    if (typeof Config.getConfig === 'function') {
+                        config = Config.getConfig();
+                    } else {
+                        config = {
+                            startTime: Config.get('startTime') || '08:00',
+                            endTime: Config.get('endTime') || '18:00',
+                            intervalMinutes: Config.get('intervalMinutes') || 40,
+                            lockMinutes: Config.get('lockMinutes') || 5,
+                            forceLock: Config.get('forceLock') || false,
+                            soundEnabled: Config.get('soundEnabled') !== false,
+                            notificationType: Config.get('notificationType') || 'desktop'
+                        };
+                    }
+                }
+                logger.info('[App] lock-closed event, rescheduling with config:', config);
                 const next = ReminderModule.calculateNextReminder(now, config);
                 ReminderModule.setNextReminderTime(next.getTime());
                 if (typeof UIModule !== 'undefined') UIModule.updateNextReminderDisplay(next.getTime());

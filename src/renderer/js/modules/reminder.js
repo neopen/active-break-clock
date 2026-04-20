@@ -186,39 +186,79 @@ const ReminderModule = (function () {
     }
 
     function trigger(config) {
-        if (!isRunning || isLocked || pendingLock) return;
+        logger.info('[REMINDER] ========== TRIGGER START ==========');
+        logger.info('[REMINDER] Received config:', JSON.stringify(config));
+        logger.info('[REMINDER] isRunning:', isRunning, 'isLocked:', isLocked, 'pendingLock:', pendingLock);
+
+        if (!isRunning || isLocked || pendingLock) {
+            logger.info('[REMINDER] Skipping trigger - not running or already locked');
+            return;
+        }
+
         if (isInDoNotDisturbMode(config)) {
             logger.info('[REMINDER] In Do Not Disturb mode, skipping reminder');
             const callbacks = getCallbacks();
             if (callbacks.onLockClose) callbacks.onLockClose();
             return;
         }
-        const notificationType = config.notificationType || 'desktop';
-        let lockMins = 5;
-        if (config && config.lockMinutes) lockMins = parseInt(config.lockMinutes);
-        else if (ConfigModule) {
-            // ConfigModule.load() 是异步的，此处使用同步缓存读取，避免阻塞主循环
-            const cached = ConfigModule.get('lockMinutes');
-            lockMins = cached || 5;
+
+        // 🔧 强制从 Config 模块重新获取最新配置
+        let freshConfig = config;
+        if (ConfigModule) {
+            const freshLockMinutes = ConfigModule.get('lockMinutes');
+            const freshForceLock = ConfigModule.get('forceLock');
+            const freshSoundEnabled = ConfigModule.get('soundEnabled');
+            const freshNotificationType = ConfigModule.get('notificationType');
+
+            logger.info('[REMINDER] Fresh values from ConfigModule:', {
+                lockMinutes: freshLockMinutes,
+                forceLock: freshForceLock,
+                soundEnabled: freshSoundEnabled,
+                notificationType: freshNotificationType
+            });
+
+            freshConfig = {
+                ...config,
+                lockMinutes: freshLockMinutes !== null ? freshLockMinutes : (config.lockMinutes || 5),
+                forceLock: freshForceLock !== null ? freshForceLock : (config.forceLock || false),
+                soundEnabled: freshSoundEnabled !== null ? freshSoundEnabled : (config.soundEnabled !== false),
+                notificationType: freshNotificationType || config.notificationType || 'desktop'
+            };
         }
+
+        const notificationType = freshConfig.notificationType || 'desktop';
+        let lockMins = parseInt(freshConfig.lockMinutes) || 5;
         lockMins = Math.min(30, Math.max(1, lockMins));
-        const forceLock = (config && config.forceLock) || false;
-        const soundEnabled = (config && config.soundEnabled) !== undefined ? config.soundEnabled : true;
+        const forceLock = freshConfig.forceLock === true;
+        const soundEnabled = freshConfig.soundEnabled !== false;
+
+        logger.info('[REMINDER] Final trigger values - lockMins:', lockMins, 'forceLock:', forceLock, 'notificationType:', notificationType);
 
         const callbacks = getCallbacks();
         if (callbacks.onReminderTrigger) callbacks.onReminderTrigger(notificationType);
 
         if (notificationType === 'desktop') {
+            logger.info('[REMINDER] Desktop notification mode, NOT showing lock screen');
             if (soundEnabled && AudioModule) AudioModule.playAlert();
-            pendingLock = false; isLocked = false; isCreatingLock = false;
+            pendingLock = false;
+            isLocked = false;
+            isCreatingLock = false;
             if (callbacks.onLockClose) callbacks.onLockClose();
             return;
         }
 
+        // 锁屏模式
+        logger.info('[REMINDER] Lock screen mode, showing lock with duration:', lockMins, 'minutes');
         pendingLock = true;
-        if (soundEnabled && AudioModule) { AudioModule.playAlert(); AudioModule.startContinuous(); }
+        if (soundEnabled && AudioModule) {
+            AudioModule.playAlert();
+            AudioModule.startContinuous();
+        }
         showLockScreen(lockMins, forceLock, () => {
-            isLocked = false; pendingLock = false; isCreatingLock = false;
+            logger.info('[REMINDER] Lock screen completed callback');
+            isLocked = false;
+            pendingLock = false;
+            isCreatingLock = false;
             if (AudioModule) AudioModule.stopContinuous();
             if (callbacks.onLockClose) callbacks.onLockClose();
         });
@@ -261,8 +301,21 @@ const ReminderModule = (function () {
         const now = Date.now();
         if (nextReminderTimestamp && now >= nextReminderTimestamp) {
             logger.info('[REMINDER] Time to remind!');
-            // 安全获取配置，避免异步调用导致阻塞
-            const cfg = ConfigModule ? (ConfigModule.get('_config') || { lockMinutes: 5, forceLock: false, soundEnabled: true }) : { lockMinutes: 5, forceLock: false, soundEnabled: true };
+            //修复：正确获取最新配置，而不是使用缓存的 _config
+            let cfg = null;
+            if (ConfigModule && typeof ConfigModule.getConfig === 'function') {
+                cfg = ConfigModule.getConfig();
+            } else if (ConfigModule && typeof ConfigModule.get === 'function') {
+                // 逐个获取配置项，确保获取最新值
+                cfg = {
+                    lockMinutes: ConfigModule.get('lockMinutes') || 5,
+                    forceLock: ConfigModule.get('forceLock') || false,
+                    soundEnabled: ConfigModule.get('soundEnabled') !== false,
+                    notificationType: ConfigModule.get('notificationType') || 'desktop',
+                    doNotDisturb: ConfigModule.get('doNotDisturb') || { enabled: false }
+                };
+            }
+            logger.info('[REMINDER] Using config for reminder:', cfg);
             trigger(cfg);
         }
     }

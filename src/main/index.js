@@ -211,61 +211,64 @@ async function hideMainWindow() {
 /**
  * 创建锁屏窗口（Neutralino 动态窗口）
  */
+/**
+ * 创建锁屏窗口（使用配置文件中的 lock 模式）
+ */
 async function createLockWindow(durationSeconds, forceLock) {
-  console.log('[Window] Creating lock window:', durationSeconds, 's, forceLock:', forceLock);
+  console.log('[Window] ========== CREATE LOCK WINDOW ==========');
+  console.log('[Window] durationSeconds:', durationSeconds, 'type:', typeof durationSeconds);
+  console.log('[Window] forceLock:', forceLock);
 
   if (lockTimer) {
     clearTimeout(lockTimer);
     lockTimer = null;
   }
 
-  // 参数校验
+  // 参数校验和转换
   let validDuration = parseInt(durationSeconds);
+  console.log('[Window] After parseInt:', validDuration);
+
   if (isNaN(validDuration) || validDuration < 10) {
+    console.log('[Window] Invalid duration, using default 60');
     validDuration = 60;
   }
 
+  console.log('[Window] Final duration:', validDuration, 'seconds');
+
   try {
-    // Neutralino window.create 参数（v6 规范）
+    // 检查窗口是否已存在
+    const exists = await window.exists(lockWindowId).catch(() => false);
+    console.log('[Window] Lock window exists:', exists);
+
+    if (exists) {
+      await window.destroy(lockWindowId);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // 创建锁屏窗口
+    console.log('[Window] Creating lock window with mode: lock');
     await window.create(lockWindowId, {
-      title: '起来走走 - 锁屏',
-      width: 1920,
-      height: 1080,
-      minWidth: 1920,    // 锁定尺寸
-      minHeight: 1080,
-      resizable: false,
-      fullscreen: true,  // 注意是 fullscreen（小写 f）
-      alwaysOnTop: true,
-      center: false,
-      icon: '/icons/icon-256.png',  // 路径以 / 开头
-      // ❌ 不要传 label/transparent/shadow 等 Electron 特有参数
+      mode: 'lock',
+      url: `/lock.html?duration=${validDuration}&forceLock=${forceLock ? 'true' : 'false'}`
     });
-
-    // 加载锁屏页面（带参数）
-    await window.loadURL(lockWindowId, `/lock.html?duration=${validDuration}&forceLock=${forceLock ? 'true' : 'false'}`);
-
-    // 确保全屏 + 置顶
-    await window.setFullScreen(lockWindowId, true);
-    await window.setAlwaysOnTop(lockWindowId, true); // Neutralino 不支持第三个参数
 
     isLockWindowShowing = true;
+    console.log('[Window] Lock window created successfully');
 
-    // 通知渲染层锁屏已打开（使用 events.dispatch）
-    await events.dispatch('lock-window-opened', {
-      duration: validDuration,
-      forceLock
-    });
-
-    // 设置超时自动关闭（+3 秒缓冲）
+    // 设置超时自动关闭
     lockTimer = setTimeout(async () => {
       console.log('[Window] Lock timeout, force closing');
       await closeLockWindow();
     }, validDuration * 1000 + 3000);
 
-    console.log('[Window] Lock window created');
   } catch (error) {
     console.error('[Window] Create lock failed:', error);
   }
+}
+
+// 辅助函数：延迟
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**

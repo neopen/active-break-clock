@@ -89,6 +89,13 @@ const Config = (function () {
         }
         logger.info('Config saved');
         _listeners.forEach(fn => fn({ ..._config }));
+
+        // 触发全局事件，通知其他模块配置已更新
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('config-updated', {
+                detail: { ..._config }
+            }));
+        }
         return { ..._config };
     }
 
@@ -154,7 +161,16 @@ const Config = (function () {
         return num;
     }
 
-    return { setElements, load, save, get, set, subscribe, validateInterval, validateLockMinutes, fixIntervalValue, fixLockValue, updateNotificationHint };
+    function getConfig() {
+        return _config ? { ..._config } : null;
+    }
+
+    return {
+        setElements, load, save, get, set, subscribe,
+        getConfig,
+        validateInterval, validateLockMinutes,
+        fixIntervalValue, fixLockValue, updateNotificationHint
+    };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Config;
