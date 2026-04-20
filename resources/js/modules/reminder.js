@@ -129,58 +129,146 @@ const ReminderModule = (function () {
     }
 
     function showLockScreen(minutes, forceLock, onComplete) {
-        logger.info('showLockScreen called, minutes:', minutes, 'isLocked:', isLocked, 'isCreatingLock:', isCreatingLock);
+        logger.info('showLockScreen called, minutes:', minutes, 'isLocked:', isLocked);
         if (isLocked || isCreatingLock) return;
+
         isCreatingLock = true;
         const totalSeconds = minutes * 60;
-        logger.info('[REMINDER] Converting', minutes, 'minutes to', totalSeconds, 'seconds');
+        logger.info('[REMINDER] Lock duration:', totalSeconds, 'seconds');
 
+        // 直接使用渲染进程的窗口 API
         if (typeof Neutralino !== 'undefined') {
-            try {
-                isLocked = true;
-                Neutralino.events.dispatch('show-lock', { duration: totalSeconds, forceLock: forceLock });
-                return;
-            } catch (e) {
-                logger.error('[REMINDER] Failed to send show-lock via Neutralino:', e);
-                isLocked = false; isCreatingLock = false; pendingLock = false;
-            }
-        } else if (typeof window !== 'undefined' && window.require) {
-            try {
-                const { ipcRenderer } = window.require('electron');
-                isLocked = true;
-                ipcRenderer.send('show-lock', totalSeconds, forceLock);
-                return;
-            } catch (e) {
-                logger.error('[REMINDER] Failed to send show-lock:', e);
-                isLocked = false; isCreatingLock = false; pendingLock = false;
-            }
+            (async () => {
+                try {
+                    // 清理可能存在的旧窗口
+                    try {
+                        await Neutralino.window.destroy('lockWindow');
+                        await new Promise(r => setTimeout(r, 100));
+                    } catch (e) { }
+
+                    // 创建锁屏窗口
+                    // 正确的方式：URL 作为第一个参数
+                    const windowUrl = `/lock.html?duration=${totalSeconds}&forceLock=${forceLock}`;
+                    logger.info('[REMINDER] Creating window with URL:', windowUrl);
+
+                    await Neutralino.window.create(windowUrl, {
+                        title: 'Rest Reminder',
+                        width: 1920,
+                        height: 1080,
+                        fullscreen: true,
+                        alwaysOnTop: true,
+                        resizable: false,
+                        borderless: true,
+                        exitProcessOnClose: false,
+                        enableInspector: false,
+                        maximizable: false,
+                        hidden: false
+                    });
+
+                    logger.info('[REMINDER] Lock window created');
+                    isLocked = true;
+                    isCreatingLock = false;
+
+                    // 隐藏主窗口
+                    await Neutralino.window.hide('main').catch(() => { });
+
+                    // 播放声音
+                    if (AudioModule) {
+                        AudioModule.playAlert();
+                        AudioModule.startContinuous();
+                    }
+
+                    // 监听窗口关闭
+                    const checkClose = setInterval(async () => {
+                        try {
+                            const exists = await Neutralino.window.exists('lockWindow');
+                            if (!exists) {
+                                clearInterval(checkClose);
+                                logger.info('[REMINDER] Lock window closed');
+
+                                // 清理状态
+                                isLocked = false;
+                                isCreatingLock = false;
+                                pendingLock = false;
+
+                                // 停止声音
+                                if (AudioModule) AudioModule.stopContinuous();
+
+                                // 显示主窗口
+                                await Neutralino.window.show('main').catch(() => { });
+                                await Neutralino.window.focus('main').catch(() => { });
+
+                                // 执行回调
+                                if (onComplete) onComplete();
+                                else if (onLockClose) onLockClose();
+                            }
+                        } catch (e) {
+                            clearInterval(checkClose);
+                        }
+                    }, 500);
+
+                } catch (err) {
+                    logger.error('[REMINDER] Failed to create lock window:', err);
+                    isLocked = false;
+                    isCreatingLock = false;
+                    pendingLock = false;
+                    if (AudioModule) AudioModule.stopContinuous();
+
+                    // 回退到内置锁屏
+                    showBuiltinLockScreen(totalSeconds, forceLock, onComplete);
+                }
+            })();
+            return;
         }
 
-        isLocked = true; isCreatingLock = false;
+        // 非 Neutralino 环境的回退方案
+        showBuiltinLockScreen(totalSeconds, forceLock, onComplete);
+    }
+
+    // 内置锁屏（当无法创建独立窗口时使用）
+    function showBuiltinLockScreen(totalSeconds, forceLock, onComplete) {
+        logger.info('[REMINDER] Using built-in lock screen');
+        isLocked = true;
+        isCreatingLock = false;
+
         currentLockEndTime = Date.now() + (totalSeconds * 1000);
         document.body.classList.add('lock-active');
-        if (progressCircle) progressCircle.style.background = 'conic-gradient(from 0deg, #a78bfa 0deg, #a78bfa 0deg, rgba(255, 255, 255, 0.1) 0deg)';
+
+        if (progressCircle) {
+            progressCircle.style.background = 'conic-gradient(from 0deg, #a78bfa 0deg, #a78bfa 0deg, rgba(255, 255, 255, 0.1) 0deg)';
+        }
+
         if (lockOverlay) {
             lockOverlay.classList.remove('hidden');
             lockOverlay.style.animation = 'fadeIn 0.3s ease';
-            const existingCloseBtn = lockOverlay.querySelector('.close-btn, .close-button, [data-close]');
-            if (existingCloseBtn) existingCloseBtn.remove();
         }
+
         if (lockTimerInterval) clearInterval(lockTimerInterval);
+
         const updateTimer = () => {
             const now = Date.now();
             const remaining = Math.max(0, Math.ceil((currentLockEndTime - now) / 1000));
+
             if (countdownSpan) countdownSpan.innerText = remaining;
             updateProgressCircle(remaining, totalSeconds);
+
             if (remaining <= 0) {
-                clearInterval(lockTimerInterval); lockTimerInterval = null;
-                closeLockScreen(); if (onComplete) onComplete();
+                clearInterval(lockTimerInterval);
+                lockTimerInterval = null;
+                closeLockScreen();
+                if (onComplete) onComplete();
             } else if (unlockBtn) {
-                unlockBtn.innerText = `剩余 ${remaining} 秒`; // 移除 Emoji
-                if (forceLock) { unlockBtn.classList.add('disabled'); unlockBtn.disabled = true; }
-                else { unlockBtn.classList.remove('disabled'); unlockBtn.disabled = false; }
+                unlockBtn.innerText = `剩余 ${remaining} 秒`;
+                if (forceLock) {
+                    unlockBtn.classList.add('disabled');
+                    unlockBtn.disabled = true;
+                } else {
+                    unlockBtn.classList.remove('disabled');
+                    unlockBtn.disabled = false;
+                }
             }
         };
+
         updateTimer();
         lockTimerInterval = setInterval(updateTimer, 100);
     }
@@ -202,7 +290,7 @@ const ReminderModule = (function () {
             return;
         }
 
-        // 🔧 强制从 Config 模块重新获取最新配置
+        // 强制从 Config 模块重新获取最新配置
         let freshConfig = config;
         if (ConfigModule) {
             const freshLockMinutes = ConfigModule.get('lockMinutes');
@@ -301,12 +389,10 @@ const ReminderModule = (function () {
         const now = Date.now();
         if (nextReminderTimestamp && now >= nextReminderTimestamp) {
             logger.info('[REMINDER] Time to remind!');
-            //修复：正确获取最新配置，而不是使用缓存的 _config
             let cfg = null;
             if (ConfigModule && typeof ConfigModule.getConfig === 'function') {
                 cfg = ConfigModule.getConfig();
             } else if (ConfigModule && typeof ConfigModule.get === 'function') {
-                // 逐个获取配置项，确保获取最新值
                 cfg = {
                     lockMinutes: ConfigModule.get('lockMinutes') || 5,
                     forceLock: ConfigModule.get('forceLock') || false,

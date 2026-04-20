@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Lock Test</title>
+    <script src="/neutralino.js"></script>
+    <style>
+        body {
+            background: #1a1a2e;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial;
+        }
+
+        .box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #a78bfa;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            background: #22c55e;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="box">
+        <h1>锁屏测试页面</h1>
+        <p>倒计时: <span id="timer">60</span> 秒</p>
+        <button id="closeBtn">关闭窗口</button>
+    </div>
+    <script>
+        Neutralino.init();
+
+        let seconds = 60;
+        const timerEl = document.getElementById('timer');
+
+        const interval = setInterval(() => {
+            seconds--;
+            timerEl.textContent = seconds;
+            if (seconds <= 0) {
+                clearInterval(interval);
+                Neutralino.events.dispatch('stop-sound');
+                Neutralino.window.close();
+            }
+        }, 1000);
+
+        document.getElementById('closeBtn').onclick = () => {
+            clearInterval(interval);
+            Neutralino.events.dispatch('stop-sound');
+            Neutralino.window.close();
+        };
+
+        // 阻止键盘
+        document.addEventListener('keydown', (e) => e.preventDefault());
+    </script>
+</body>
+
+</html>

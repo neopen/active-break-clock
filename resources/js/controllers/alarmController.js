@@ -5,12 +5,10 @@
  * 注意：启动音频需依赖用户交互，故使用 async 包装
  */
 const AlarmController = (function () {
-    // 安全初始化日志实例，降级到 console
     const logger = typeof Logger !== 'undefined' ? Logger.createLogger('AlarmController') : console;
 
     /**
      * 启动闹铃
-     * 流程：验证输入 -> 保存配置 -> 计算下次时间 -> 启动核心循环 -> 更新 UI
      */
     async function start() {
         logger.info('尝试启动闹铃...');
@@ -35,7 +33,7 @@ const AlarmController = (function () {
         const notificationType = typeof Config !== 'undefined' ? Config.get('notificationType') : 'desktop';
         logger.info('当前通知模式:', notificationType);
 
-        // 3. 初始化音频上下文（浏览器策略要求必须由用户手势触发）
+        // 3. 初始化音频上下文
         if (typeof AudioModule !== 'undefined') {
             await AudioModule.resume();
         }
@@ -47,7 +45,6 @@ const AlarmController = (function () {
 
         // 5. 计算下次提醒时间并启动核心模块
         const now = new Date();
-        // 优先读取缓存配置，若未加载则异步拉取
         const config = typeof Config !== 'undefined' ? (Config.get('_config') || await Config.load()) : {};
         const next = ReminderModule.calculateNextReminder(now, config);
         ReminderModule.setNextReminderTime(next.getTime());
@@ -64,11 +61,11 @@ const AlarmController = (function () {
         const modeText = notificationType === 'desktop' ? '桌面通知' : '锁屏通知';
         logger.info('闹铃启动成功，下次提醒时间:', next.toLocaleTimeString());
 
-        // 7. 显示成功提示（安全降级）
+        // 7. 显示成功提示
         if (typeof AutoCloseDialog !== 'undefined') {
             AutoCloseDialog.show({
                 title: '启动成功',
-                message: `闹铃已启动（${modeText}模式）<br> 将在 ${next.toLocaleTimeString()} 开始提醒`,
+                message: `闹铃已启动（${modeText}模式），将在 ${next.toLocaleTimeString()} 开始提醒`,
                 autoClose: 3000,
                 confirmColor: '#22c55e'
             });
@@ -77,11 +74,9 @@ const AlarmController = (function () {
 
     /**
      * 停止闹铃
-     * 流程：清理定时器与声音 -> 重置 UI -> 显示提示
      */
     function stop() {
         logger.info('尝试停止闹铃...');
-        // 修复：原代码传递了 AudioModule 参数，但 stop() 无参
         ReminderModule.stop();
 
         if (typeof UIModule !== 'undefined') {

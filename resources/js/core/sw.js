@@ -7,7 +7,6 @@ const CACHE_NAME = 'health-clock-v1.0.0';
 const ASSETS_TO_CACHE = [
   './',
   'index.html',
-  'manifest.json',
   'css/base.css',
   'css/components.css',
   'css/lock.css',
