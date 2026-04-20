@@ -1,32 +1,50 @@
 {
+  "applicationId": "com.neopen.activebreakclock",
   "appname": "HealthClock",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "一款强制锁屏的健康提醒应用，帮你打破久坐循环，养成定时活动的好习惯。",
-  "main": "src/main/index.js",
-  "url": "/",
-  "port": 0,
+  "defaultMode": "window",
+  "documentRoot": "/src/renderer/",
+  "url": "/index.html",
+  "enableServer": true,
   "enableHTTPS": false,
-  "globalVariables": {
-    "NL_VERSION": "${NL_VERSION}",
-    "NL_PORT": "${NL_PORT}"
+  "enableNativeAPI": true,
+  "tokenSecurity": "one-time",
+  "logging": {
+    "enabled": true,
+    "writeToLogFile": true
   },
-  "window": {
-    "main": {
+  "nativeAllowList": [
+    "app.*",
+    "os.*",
+    "filesystem.*",
+    "window.*",
+    "process.*",
+    "debug.*",
+    "storage.*",
+    "events.*"
+  ],
+  "modes": {
+    "window": {
       "title": "起来走走 - 拒绝久坐",
-      "width": 500, 
-      "height": 750, 
+      "width": 500,
+      "height": 750,
       "minWidth": 400,
       "minHeight": 600,
-      "resizable": true,
-      "fullscreen": false,
+      "fullScreen": false,
       "alwaysOnTop": false,
       "center": true,
       "icon": "src/renderer/icons/icon-256.png",
       "label": "main",
+      "enableInspector": false,
+      "borderless": false,
+      "maximize": false,
+      "hidden": false,
+      "resizable": true,
+      "exitProcessOnClose": false,
       "transparent": false,
       "shadow": true,
       "defaultBackgroundOpacity": 1,
-      "enableInspector": true,
       "windowControls": {
         "hide": false,
         "maximize": true,
@@ -68,38 +86,16 @@
       }
     ]
   },
-  "security": {
-    "permissions": [
-      "app.*",
-      "window.*",
-      "filesystem.*",
-      "os.*",
-      "process.*",
-      "debug.*",
-      "storage.*",
-      "events.*" 
-    ]
-  },
-  "modes": {
-    "window": {
-      "args": [],
-      "env": {}
-    },
-    "browser": {
-      "args": [],
-      "env": {}
-    },
-    "cloud": {
-      "args": [],
-      "env": {}
-    }
-  },
   "cli": {
-    "mirrorUrl": "https://npmmirror.com/mirrors/neutralinojs/",
     "binaryName": "HealthClock",
-    "resourcesPath": "src/renderer",
-    "extensionsPath": "src/extensions",
-    "libraryPath": "src/main",
-    "binaryVersion": "6.7.0"
-  }
+    "resourcesPath": "/src/renderer/",
+    "extensionsPath": "/extensions/",
+    "clientLibrary": "/neutralino.js",
+    "preserveWatchOutput": false,
+    "disableAutoLoad": false,
+    "secure": false,
+    "nativeLogger": true,
+    "singleInstance": true
+  },
+  "extensions": []
 }

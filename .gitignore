@@ -6,6 +6,7 @@ node_modules/*
 *.egg-info/
 .venv/
 .env/
+.tmp/
 data/
 venv/
 temp/

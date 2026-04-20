@@ -2,16 +2,13 @@
   "name": "HealthClock",
   "version": "0.6.0",
   "description": "一款强制锁屏的健康提醒应用，帮你打破久坐循环，养成定时活动的好习惯。",
-  "main": "neutralino.config.json",
   "scripts": {
     "dev": "neu run",
-    "start": "neu run",
-    "build": "npm run build:renderer",
-    "dist": "npm run build && neu build",
-    "dist:win": "npm run build && neu build --windows",
-    "dist:mac": "npm run build && neu build --macos",
-    "dist:linux": "npm run build && neu build --linux",
-    "clean": "rd /s /q dist release 2>nul"
+    "build": "neu build",
+    "build:win": "neu build --windows",
+    "build:mac": "neu build --macos",
+    "build:linux": "neu build --linux",
+    "clean": "rd /s /q dist release 2>nul & del /f /q package-lock.json 2>nul"
   },
   "repository": {
     "type": "git",
@@ -41,6 +38,7 @@
   "homepage": "https://github.com/neopen/active-break-clock#readme",
   "type": "commonjs",
   "devDependencies": {
-    "@neutralinojs/lib": "^6.7.0"
+    "@neutralinojs/lib": "^6.7.0",
+    "@neutralinojs/neu": "^11.7.1"
   }
 }
