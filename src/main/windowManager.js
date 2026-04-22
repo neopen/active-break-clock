@@ -135,9 +135,9 @@ function createLockWindow(durationSeconds, forceLock) {
 
     lockWindow = new BrowserWindow({
         width, height, x: 0, y: 0,
-        fullscreen: false,
+        fullscreen: true,
         fullscreenable: true,
-        kiosk: false,
+        kiosk: true,
         alwaysOnTop: true,
         frame: false,
         transparent: false,
@@ -190,8 +190,6 @@ function createLockWindow(durationSeconds, forceLock) {
             lockWindow.setContentProtection(true);
         }
 
-        lockWindow.setKiosk(true);
-        lockWindow.setFullScreen(true);
         lockWindow.setAlwaysOnTop(true, 'screen-saver');
         lockWindow.setSkipTaskbar(true);
         lockWindow.setMovable(false);
@@ -200,7 +198,6 @@ function createLockWindow(durationSeconds, forceLock) {
         lockWindow.setIgnoreMouseEvents(false);
         lockWindow.setMenu(null);
 
-        // 阻止键盘输入
         lockWindow.webContents.on('before-input-event', (event) => event.preventDefault());
         lockWindow.webContents.on('context-menu', (event) => event.preventDefault());
 
