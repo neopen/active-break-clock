@@ -56,7 +56,7 @@ const AlarmController = (function() {
         const modeText = notificationType === 'desktop' ? '桌面通知' : '锁屏通知';
         AutoCloseDialog.show({
             title: '启动成功',
-            message: `闹铃已启动（${modeText}模式），将在 ${next.toLocaleTimeString()} 开始提醒`,
+            message: `闹铃已启动（${modeText}模式）<br>将在 ${next.toLocaleTimeString()} 开始提醒`,
             autoClose: 3000,
             confirmColor: '#22c55e'
         });

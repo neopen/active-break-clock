@@ -70,7 +70,17 @@ const Config = (function () {
             lockMinutes: CONFIG ? CONFIG.TIME.DEFAULT_LOCK : 5,
             forceLock: false,
             soundEnabled: true,
-            notificationType: CONFIG ? CONFIG.NOTIFICATION_TYPE.DESKTOP : 'desktop'
+            notificationType: CONFIG ? CONFIG.NOTIFICATION_TYPE.DESKTOP : 'desktop',
+
+            // 免打扰配置
+            doNotDisturb: {
+                enabled: false,
+                lunchBreak: {
+                    start: CONFIG ? CONFIG.DO_NOT_DISTURB.DEFAULT_LUNCH_START : '12:00',
+                    end: CONFIG ? CONFIG.DO_NOT_DISTURB.DEFAULT_LUNCH_END : '14:00'
+                },
+                customBreaks: []  // [{ start: '14:00', end: '15:00', name: '会议' }]
+            }
         };
 
         let saved = null;
