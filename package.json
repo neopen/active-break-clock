@@ -1,6 +1,6 @@
 {
   "name": "HealthClock",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "一款强制锁屏的健康提醒应用，帮你打破久坐循环，养成定时活动的好习惯。",
   "main": "dist/main/main.js",
   "scripts": {
@@ -13,9 +13,21 @@
     "build:web": "node scripts/build-web.js",
     "clean": "rd /s /q dist release 2>nul"
   },
+  "scripts-bak": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "build:win": "electron-builder --win --x64",
+    "clean": "rmdir /s /q dist node_modules",
+    "build:web": "node scripts/build-web.js",
+    "deploy:web": "npm run build:web && node scripts/deploy-web.js",
+    "serve:web": "npx serve docs",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "compress": "compress.bat"
+  },
+
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/neopen/active-break-clock.git"
+    "url": "git+https://github.com/neopen/break-reminder.git"
   },
   "keywords": [
     "health",
@@ -36,13 +48,14 @@
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/neopen/active-break-clock/issues"
+    "url": "https://github.com/neopen/break-reminder/issues"
   },
-  "homepage": "https://github.com/neopen/active-break-clock#readme",
+  "homepage": "https://clock.pengline.cn",
   "type": "commonjs",
   "devDependencies": {
     "electron": "^41.2.0",
     "electron-builder": "^26.8.1",
     "electron-vite": "^2.0.0"
   }
+  
 }

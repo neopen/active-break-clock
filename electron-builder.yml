@@ -6,6 +6,9 @@ copyright: Copyright © 2026 neopen
 electronLanguages:
   - zh-CN
 
+extraResources:
+  - 'src/renderer/icons/**/*'
+
 directories:
   output: release
 
@@ -18,7 +21,17 @@ files:
   - '!**/*.log'
   - '!**/*.md'
   - '!**/*.ts'
+  - '!**/*.po'
+  - '!**/*.mo'
+  - '!**/*.test.js'
+  - '!**/*.spec.js'
+  - '!**/docs/**/*'
+  - '!**/scripts/**/*'
+  - '!**/test/**/*'
+  - '!**/imgs/**/*'
   - '!**/node_modules/**/*'
+  - '!**/.storage/**/*'
+  - '!**/.tmp/**/*'
 
 win:
   # target: nsis
@@ -27,6 +40,7 @@ win:
     - portable
   icon: src/renderer/icons/icon-256.png
   asar: true
+  asarUnpack: "**/*.node"
   # 压缩 app.asar（唯一合法的压缩配置）
   compression: maximum
   requestedExecutionLevel: asInvoker
