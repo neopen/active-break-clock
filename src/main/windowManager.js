@@ -9,6 +9,7 @@ let lockTimer = null;
 let tray = null;
 let isLockWindowClosing = false;
 let isRestoringMain = false;
+let wasMainWindowVisible = true; // 保存主窗口的可见状态
 
 // 创建主窗口
 function createMainWindow() {
@@ -38,7 +39,8 @@ function createMainWindow() {
     mainWindow.on('close', (event) => {
         console.log('[WindowManager] Main window close, quitting:', app.quitting);
         if (app.quitting) {
-            mainWindow = null;
+            // 真正退出应用，让窗口关闭
+            // mainWindow.destroy();
         } else {
             event.preventDefault();
             mainWindow.hide();
@@ -106,6 +108,14 @@ function createLockWindow(durationSeconds, forceLock) {
 
     isLockWindowClosing = false;
 
+    // 保存主窗口的可见状态
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        wasMainWindowVisible = mainWindow.isVisible();
+        console.log('[WindowManager] Main window was visible:', wasMainWindowVisible);
+    } else {
+        wasMainWindowVisible = false;
+    }
+
     // 清理现有锁屏窗口
     if (lockWindow && !lockWindow.isDestroyed()) {
         lockWindow.destroy();
@@ -148,9 +158,9 @@ function createLockWindow(durationSeconds, forceLock) {
         useContentSize: true,
         webPreferences: {
             preload: path.join(__dirname, '../preload/preload.js'),
-            contextIsolation: false,   // 改为 false，允许直接使用 require
-            nodeIntegration: true,      // 改为 true，允许使用 Node.js API
-            sandbox: false,             // 关闭沙箱
+            contextIsolation: false,
+            nodeIntegration: true,
+            sandbox: false,
             webSecurity: false,
             spellcheck: false
         }
@@ -176,23 +186,19 @@ function createLockWindow(durationSeconds, forceLock) {
     });
 
     lockWindow.once('ready-to-show', () => {
-        lockWindow.setKiosk(true);
-        lockWindow.setFullScreen(true);
-        lockWindow.setAlwaysOnTop(true, 'screen-saver');
-
         if (process.platform === 'win32') {
-            lockWindow.setSkipTaskbar(true);
             lockWindow.setVisibleOnAllWorkspaces(true);
             lockWindow.setContentProtection(true);
         }
 
+        lockWindow.setAlwaysOnTop(true, 'screen-saver');
+        lockWindow.setSkipTaskbar(true);
         lockWindow.setMovable(false);
         lockWindow.setResizable(false);
         lockWindow.setOpacity(1.0);
         lockWindow.setIgnoreMouseEvents(false);
         lockWindow.setMenu(null);
 
-        // 阻止键盘输入
         lockWindow.webContents.on('before-input-event', (event) => event.preventDefault());
         lockWindow.webContents.on('context-menu', (event) => event.preventDefault());
 
@@ -200,9 +206,9 @@ function createLockWindow(durationSeconds, forceLock) {
             window.__LOCK_PARAMS__ = { duration: ${validDuration}, forceLock: ${forceLock} };
         `);
 
+        lockWindow.show();
         lockWindow.focus();
         lockWindow.moveTop();
-        lockWindow.show();
 
         // 持续确保全屏
         const fullscreenInterval = setInterval(() => {
@@ -296,9 +302,17 @@ function restoreMainWindow() {
 
     if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setEnabled(true);
-        mainWindow.focus();
         mainWindow.setAlwaysOnTop(false);
-        mainWindow.moveTop();
+        
+        // 只在主窗口之前是可见的时候才显示它
+        if (wasMainWindowVisible) {
+            mainWindow.show();
+            mainWindow.focus();
+            mainWindow.moveTop();
+            console.log('[WindowManager] Restored main window (was visible)');
+        } else {
+            console.log('[WindowManager] Main window remains hidden (was not visible)');
+        }
     }
 
     setTimeout(() => { isRestoringMain = false; }, 100);

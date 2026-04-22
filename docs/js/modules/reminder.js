@@ -288,6 +288,17 @@ const ReminderModule = (function () {
             return;
         }
 
+        // ========== 免打扰检查 ==========
+        if (isInDoNotDisturbMode(config)) {
+            console.log('[REMINDER] In Do Not Disturb mode, skipping reminder');
+            // 重新调度下一次提醒
+            const callbacks = getCallbacks();
+            if (callbacks.onLockClose) {
+                callbacks.onLockClose();
+            }
+            return;
+        }
+
         // 获取通知类型
         const notificationType = config.notificationType || 'desktop';
         console.log('[REMINDER] Notification type:', notificationType);
@@ -498,6 +509,51 @@ const ReminderModule = (function () {
         }
         mainIntervalId = setInterval(() => checkAndRemind(), 500);
     }
+
+    // 检查是否在免打扰时段
+    function isInDoNotDisturbMode(config) {
+        const dnd = config.doNotDisturb;
+
+        // 如果免打扰未启用，返回 false
+        if (!dnd || !dnd.enabled) {
+            return false;
+        }
+
+        const now = new Date();
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+        // 检查午休时间
+        if (dnd.lunchBreak && dnd.lunchBreak.start && dnd.lunchBreak.end) {
+            if (isTimeInRange(currentTime, dnd.lunchBreak.start, dnd.lunchBreak.end)) {
+                console.log('[REMINDER] In lunch break:', dnd.lunchBreak.start, '-', dnd.lunchBreak.end);
+                return true;
+            }
+        }
+
+        // 检查自定义免打扰时段
+        if (dnd.customBreaks && Array.isArray(dnd.customBreaks)) {
+            for (const breakTime of dnd.customBreaks) {
+                if (breakTime.start && breakTime.end && isTimeInRange(currentTime, breakTime.start, breakTime.end)) {
+                    console.log('[REMINDER] In custom break:', breakTime.name || '未命名', breakTime.start, '-', breakTime.end);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // 检查当前时间是否在指定时间范围内
+    function isTimeInRange(current, start, end) {
+        if (start <= end) {
+            // 同一天内
+            return current >= start && current <= end;
+        } else {
+            // 跨天（如 22:00 - 06:00）
+            return current >= start || current <= end;
+        }
+    }
+
 
     return {
         setModules,

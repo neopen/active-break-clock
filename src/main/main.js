@@ -103,6 +103,10 @@ if (!gotTheLock) {
     app.on('second-instance', () => {
         const mainWindow = windowManager.getMainWindow();
         if (mainWindow) {
+            // 如果窗口被隐藏，需要先显示再聚焦
+            if (!mainWindow.isVisible()) {
+                mainWindow.show();
+            }
             if (mainWindow.isMinimized()) mainWindow.restore();
             mainWindow.focus();
         }

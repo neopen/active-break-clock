@@ -203,6 +203,22 @@ const UIController = (function () {
                 const newConfig = Config.load();
                 if (!newConfig.doNotDisturb) newConfig.doNotDisturb = { enabled: false, lunchBreak: {}, customBreaks: [] };
                 if (!newConfig.doNotDisturb.customBreaks) newConfig.doNotDisturb.customBreaks = [];
+                
+                // 限制最多5个自定义时段
+                if (newConfig.doNotDisturb.customBreaks.length >= 5) {
+                    if (typeof AutoCloseDialog !== 'undefined') {
+                        AutoCloseDialog.show({
+                            title: '提示',
+                            message: '最多只能添加5个自定义时段',
+                            autoClose: 2000,
+                            confirmColor: '#f59e0b'
+                        });
+                    } else {
+                        alert('最多只能添加5个自定义时段');
+                    }
+                    return;
+                }
+                
                 newConfig.doNotDisturb.customBreaks.push({ start: '14:00', end: '15:00', name: '新时段' });
                 Config.save();
                 renderCustomBreaks(newConfig.doNotDisturb.customBreaks);
