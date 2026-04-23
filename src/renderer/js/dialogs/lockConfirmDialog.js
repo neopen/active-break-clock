@@ -54,7 +54,7 @@ const LockConfirmDialog = (function() {
             dialog.style.cssText = `
                 background: white;
                 border-radius: 28px;
-                width: 330px;
+                width: 280px;
                 max-width: 85%;
                 overflow: hidden;
                 box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);

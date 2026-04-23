@@ -9,8 +9,8 @@ const CONFIG = {
 
     // 目标设置
     TARGETS: {
-        PER_DAY: 10,           // 每日目标次数（≥10次达标）
-        PER_WEEK: 50,          // 每周目标次数（5天 × 10次 = 50）
+        PER_DAY: 8,           // 每日目标次数（≥8次达标）
+        PER_WEEK: 40,          // 每周目标次数（5天 × 8次 = 40）
         WORK_DAYS_PER_WEEK: 5  // 每周工作天数
     },
 

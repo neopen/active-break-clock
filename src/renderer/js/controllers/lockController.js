@@ -30,7 +30,7 @@ const LockController = (function() {
             if (lockOverlayEl && !lockOverlayEl.classList.contains('hidden')) {
                 const confirmed = await LockConfirmDialog.show({
                     title: '提前结束提醒',
-                    message: '活动时间未到，提前结束影响健康习惯。<br>确定要提前结束吗？',
+                    message: '活动时间还没到。<br>提前结束会影响健康习惯的！<br>确定要提前结束吗？',
                     confirmText: '提前结束',
                     cancelText: '继续活动',
                     confirmColor: '#f59e0b'
@@ -43,7 +43,7 @@ const LockController = (function() {
             } else {
                 const confirmed = await ConfirmDialog.show({
                     title: '提前结束提醒',
-                    message: '活动时间未到，提前结束影响健康习惯。<br>确定要提前结束吗？',
+                    message: '活动时间还没到。<br>提前结束会影响健康习惯的！<br>确定要提前结束吗？',
                     confirmText: '提前结束',
                     cancelText: '继续活动',
                     confirmColor: '#f59e0b'

@@ -234,12 +234,12 @@ const DNDController = (function () {
             const duration = endMinutes - startMinutes;
             
             // 检查时间间隔
-            if (duration < 20) {
-                return { valid: false, message: '午休时间至少需要20分钟' };
+            if (duration < 10) {
+                return { valid: false, message: '午休时间至少需要10分钟' };
             }
             
-            if (duration > 120) { // 2小时 = 120分钟
-                return { valid: false, message: '午休时间不能超过2小时' };
+            if (duration > 300) { // 5小时 = 300分钟
+                return { valid: false, message: '午休时间不能超过5小时' };
             }
             
             return { valid: true, message: '' };
