@@ -571,6 +571,8 @@
             const volumeKeys = ['VolumeUp', 'VolumeDown', 'VolumeMute', 'AudioVolumeUp', 'AudioVolumeDown', 'AudioVolumeMute'];
 
             document.addEventListener('keydown', (e) => {
+                console.log('[LOCK] keydown event:', e.key);
+
                 // 允许音量键通过
                 if (volumeKeys.includes(e.key)) {
                     console.log('[LOCK] Volume key allowed:', e.key);
