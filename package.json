@@ -7,11 +7,16 @@
     "dev": "electron .",
     "build": "node scripts/build.js",
     "start": "electron .",
-    "dist": "npm run build && electron-builder --win --x64",
+    "dist": "npm run build && npx electron-builder",
     "dist:win": "npm run build && electron-builder --win --x64",
     "dist:portable": "npm run build && electron-builder --win --x64 --config.win.target=portable",
+    "dist:win32": "npm run build && electron-builder --win --ia32",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac:arm64": "npm run build && electron-builder --mac --arm64",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:all": "npm run build && electron-builder --win --mac --linux",
     "build:web": "node scripts/build-web.js",
-    "clean": "rd /s /q dist release 2>nul"
+    "clean": "rd /s /q dist release 2>nul || rm -rf dist release"
   },
   "scripts-bak": {
     "start": "electron .",

@@ -33,15 +33,14 @@ files:
   - '!**/.storage/**/*'
   - '!**/.tmp/**/*'
 
+# ========== Windows 配置 ==========
 win:
-  # target: nsis
   target:
     - nsis
     - portable
   icon: src/renderer/icons/icon-256.png
   asar: true
   asarUnpack: "**/*.node"
-  # 压缩 app.asar（唯一合法的压缩配置）
   compression: maximum
   requestedExecutionLevel: asInvoker
 
@@ -59,3 +58,84 @@ nsis:
 portable:
   artifactName: HealthClock-${version}-x64-Portable.${ext}
   requestExecutionLevel: user
+
+# ========== macOS 配置 ==========
+mac:
+  target:
+    - dmg
+    - zip
+  icon: src/renderer/icons/icon-512.icns
+  category: public.app-category.healthcare-fitness
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.plist
+  gatekeeperAssess: false
+  hardenedRuntime: true
+  asar: true
+  asarUnpack: "**/*.node"
+  artifactName: HealthClock-${version}-${arch}.${ext}
+
+# DMG 配置
+dmg:
+  title: "别坐了-${version}"
+  icon: src/renderer/icons/icon-512.icns
+  iconSize: 100
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+
+# ========== Linux 配置 ==========
+linux:
+  target:
+    - deb
+    - rpm
+    - AppImage
+  icon: src/renderer/icons
+  category: Utility
+  executableName: healthclock  # ← 这里指定可执行文件名
+  asar: true
+  asarUnpack: "**/*.node"
+  artifactName: HealthClock-${version}-${arch}.${ext}
+  # desktop 配置只保留桌面文件相关内容，不要包含 Exec
+  desktop:
+    entry:
+      Name: 别坐了
+      Comment: 健康提醒应用，帮你打破久坐循环
+      Type: Application
+      Categories: Utility;Health;
+      # Exec 和 Icon 会自动从 executableName 和 icon 配置生成，不要手动指定
+      Terminal: false
+    desktopActions: []
+
+# AppImage 配置
+appImage:
+  artifactName: HealthClock-${version}-${arch}.AppImage
+  description: 健康提醒应用，帮你打破久坐循环
+  category: Utility
+
+# Debian 包配置
+deb:
+  artifactName: HealthClock-${version}-${arch}.deb
+  depends:
+    - libnotify-bin
+    - libgtk-3-0
+  priority: optional
+  maintainer: neopen <helpenx+clock@gmail.com>
+  packageCategory: utils
+  vendor: neopen
+
+# RPM 包配置
+rpm:
+  artifactName: HealthClock-${version}-${arch}.rpm
+  depends:
+    - libnotify
+    - gtk3
+  maintainer: neopen <helpenx+clock@gmail.com>
+  packageCategory: Utilities
+  vendor: neopen
