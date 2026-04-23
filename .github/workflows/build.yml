@@ -1,0 +1,42 @@
+name: Build Electron App
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当你推送一个像 v0.5.6 这样的标签时，自动构建
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+          - os: ubuntu-latest
+            platform: linux
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - run: npm install
+    - run: npm run build  # 先执行你的构建脚本，生成 dist 文件
+    # 关键：使用 electron-builder 直接构建特定平台
+    - run: npx electron-builder --${{ matrix.platform }} --publish never
+      env:
+        # 可选：如果需要代码签名，在这里添加你的证书环境变量
+        # CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
+        # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PWD }}
+        # WIN_CSC_LINK: ${{ secrets.WIN_CERTIFICATE }}
+        # WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERTIFICATE_PWD }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # 用于将构建产物上传到 Release
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.platform }}-artifacts
+        path: release/  # 假设你的 electron-builder.yml 中 output 目录是 release
