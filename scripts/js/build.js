@@ -3,7 +3,7 @@ const path = require('path');
 
 console.log('🔨 Building application...\n');
 
-const distDir = path.join(__dirname, '../dist');
+const distDir = path.join(__dirname, '../../dist');
 
 // 1. 清理 dist 目录
 if (fs.existsSync(distDir)) {
@@ -15,21 +15,21 @@ fs.mkdirSync(distDir, { recursive: true });
 // 2. 复制主进程
 console.log('\n📦 Copying main process...');
 copyDir(
-    path.join(__dirname, '../src/main'),
+    path.join(__dirname, '../../src/main'),
     path.join(distDir, 'main')
 );
 
 // 3. 复制预加载
 console.log('\n📦 Copying preload...');
 copyDir(
-    path.join(__dirname, '../src/preload'),
+    path.join(__dirname, '../../src/preload'),
     path.join(distDir, 'preload')
 );
 
 // 4. 复制渲染进程（完整复制）
 console.log('\n📦 Copying renderer...');
 copyDir(
-    path.join(__dirname, '../src/renderer'),
+    path.join(__dirname, '../../src/renderer'),
     path.join(distDir, 'renderer')
 );
 
