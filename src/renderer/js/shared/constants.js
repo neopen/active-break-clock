@@ -9,8 +9,8 @@ const CONFIG = {
 
     // 目标设置
     TARGETS: {
-        PER_DAY: 10,           // 每日目标次数（≥10次达标）
-        PER_WEEK: 50,          // 每周目标次数（5天 × 10次 = 50）
+        PER_DAY: 8,           // 每日目标次数（≥8次达标）
+        PER_WEEK: 40,          // 每周目标次数（5天 × 8次 = 40）
         WORK_DAYS_PER_WEEK: 5  // 每周工作天数
     },
 
@@ -36,7 +36,12 @@ const CONFIG = {
     DO_NOT_DISTURB: {
         DEFAULT_LUNCH_START: '12:00',
         DEFAULT_LUNCH_END: '14:00',
-        MAX_CUSTOM_BREAKS: 5
+        MAX_CUSTOM_BREAKS: 5,
+        MIN_LUNCH_DURATION: 10,      // 午休时间最小间隔（分钟）
+        MAX_LUNCH_DURATION: 300,     // 午休时间最大间隔（分钟，5小时）
+        DEFAULT_CUSTOM_START: '14:00', // 新时段默认开始时间
+        DEFAULT_CUSTOM_END: '15:00',   // 新时段默认结束时间
+        DEFAULT_CUSTOM_NAME: '新时段'     // 新时段默认名称
     },
 
     // 通知类型
@@ -46,7 +51,7 @@ const CONFIG = {
     },
 
     // 版本信息
-    VERSION: '0.5.0'
+    VERSION: '0.5'
 };
 
 // 导出模块

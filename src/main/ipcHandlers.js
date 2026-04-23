@@ -27,8 +27,8 @@ function initIpcHandlers() {
             mainWindow.webContents.send('stop-sound');
         }
 
-        // 再关闭锁屏窗口
-        windowManager.closeLockWindow();
+        // 再关闭锁屏窗口（自动关闭，需要系统锁屏）
+        windowManager.closeLockWindow(true);
     });
 
     ipcMain.on('hide-lock', () => {
@@ -40,7 +40,8 @@ function initIpcHandlers() {
             mainWindow.webContents.send('lock-closed');
         }
 
-        windowManager.closeLockWindow();
+        // 关闭锁屏窗口（手动关闭，不需要系统锁屏）
+        windowManager.closeLockWindow(false);
     });
 
     // ========== 声音相关 ==========

@@ -159,24 +159,12 @@ const StatsModule = (function () {
             _logger.info('Yesterday:', yesterday);
             _logger.info('Before - continuousDays:', _stats.continuousDays, 'todayCount:', _stats.todayCount);
 
-            // 判断是否是连续打卡
-            const isConsecutive = (_stats.lastActivityDate === yesterday);
-
-            if (_stats.lastActivityDate === null) {
-                // 首次使用，不做任何重置
-                _logger.info('First time use, no reset needed');
-            } else if (isConsecutive) {
-                // 连续打卡：保持 continuousDays 不变
-                _logger.info('Consecutive day! Keeping continuousDays at:', _stats.continuousDays);
-            } else {
-                // 中断打卡：重置连续天数
-                _logger.info('Chain broken! Resetting continuousDays from', _stats.continuousDays, 'to 0');
-                _stats.continuousDays = 0;
-            }
-
             // 重置今日计数（因为新的一天还没有活动）
             _stats.todayCount = 0;
-            _stats.lastActivityDate = today;
+            
+            // 只有当没有活动时才重置连续天数
+            // 连续天数的更新应该在 recordActivity() 中处理
+            // 不要在这里更新 lastActivityDate，否则会影响连续打卡的判断
 
             _logger.info('After - continuousDays:', _stats.continuousDays, 'todayCount:', _stats.todayCount);
             _logger.info('=======================');
@@ -315,16 +303,6 @@ const StatsModule = (function () {
         const dailyTarget = CONFIG ? CONFIG.TARGETS.PER_DAY : 10;
         const workDaysPerWeek = CONFIG ? CONFIG.TARGETS.WORK_DAYS_PER_WEEK : 5;
 
-        // 获取本周开始日期（周一）
-        const now = new Date();
-        const dayOfWeek = now.getDay(); // 0=周日, 1=周一, ..., 6=周六
-
-        // 计算本周一日期
-        const monday = new Date(now);
-        const dayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        monday.setDate(now.getDate() - dayOffset);
-        monday.setHours(0, 0, 0, 0);
-
         // 确保 dailyRecords 存在
         if (!_stats.dailyRecords) {
             _stats.dailyRecords = {};
@@ -335,11 +313,51 @@ const StatsModule = (function () {
 
         let totalRate = 0;
 
-        // 计算本周每一天（周一至周五）
-        for (let i = 0; i < workDaysPerWeek; i++) {
-            const checkDate = new Date(monday);
-            checkDate.setDate(monday.getDate() + i);
+        // 计算本周的开始日期（周日）
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0=周日, 1=周一, ..., 6=周六
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - dayOfWeek);
+        weekStart.setHours(0, 0, 0, 0);
+
+        // 生成本周的所有日期（周日到周六）
+        const weekDays = [];
+        for (let i = 0; i < 7; i++) {
+            const checkDate = new Date(weekStart);
+            checkDate.setDate(weekStart.getDate() + i);
             const dateStr = formatDateStr(checkDate);
+            weekDays.push(dateStr);
+        }
+
+        // 从本周中选择最近的5天（包括今天）
+        const selectedDays = [];
+        const todayStr = formatDateStr(now);
+        let daysAdded = 0;
+
+        // 从今天开始往前找，直到找到5天
+        for (let i = weekDays.length - 1; i >= 0 && daysAdded < workDaysPerWeek; i--) {
+            const dateStr = weekDays[i];
+            // 只选择今天或今天之前的日期
+            if (dateStr <= todayStr) {
+                selectedDays.unshift(dateStr); // 插入到数组开头，保持日期顺序
+                daysAdded++;
+            }
+        }
+
+        // 如果不足5天，从本周开始往后找
+        if (daysAdded < workDaysPerWeek) {
+            for (let i = 0; i < weekDays.length && daysAdded < workDaysPerWeek; i++) {
+                const dateStr = weekDays[i];
+                if (!selectedDays.includes(dateStr) && dateStr <= todayStr) {
+                    selectedDays.push(dateStr);
+                    daysAdded++;
+                }
+            }
+        }
+
+        // 计算这5天的完成率
+        for (let i = 0; i < selectedDays.length; i++) {
+            const dateStr = selectedDays[i];
 
             // 获取该天的活动次数
             const dayCount = _stats.dailyRecords[dateStr] || 0;
@@ -360,7 +378,9 @@ const StatsModule = (function () {
             dailyTarget: dailyTarget,
             totalRate: totalRate,
             finalRate: finalRate,
-            dailyRecords: _stats.dailyRecords
+            dailyRecords: _stats.dailyRecords,
+            selectedDays: selectedDays,
+            weekDays: weekDays
         });
 
         return finalRate;

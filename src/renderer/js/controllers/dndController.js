@@ -234,12 +234,15 @@ const DNDController = (function () {
             const duration = endMinutes - startMinutes;
             
             // 检查时间间隔
-            if (duration < 10) {
-                return { valid: false, message: '午休时间至少需要10分钟' };
+            const minDuration = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.MIN_LUNCH_DURATION : 10;
+            const maxDuration = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.MAX_LUNCH_DURATION : 300;
+            
+            if (duration < minDuration) {
+                return { valid: false, message: `午休时间至少需要${minDuration}分钟` };
             }
             
-            if (duration > 600) { // 10小时 = 600分钟
-                return { valid: false, message: '午休时间不能超过10小时' };
+            if (duration > maxDuration) {
+                return { valid: false, message: `午休时间不能超过${maxDuration / 60}小时` };
             }
             
             return { valid: true, message: '' };
@@ -330,24 +333,30 @@ const DNDController = (function () {
                 }
                 
                 // 限制最多5个自定义时段
-                if (newConfig.doNotDisturb.customBreaks.length >= 5) {
+                const maxCustomBreaks = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.MAX_CUSTOM_BREAKS : 5;
+                
+                if (newConfig.doNotDisturb.customBreaks.length >= maxCustomBreaks) {
                     if (typeof AutoCloseDialog !== 'undefined') {
                         AutoCloseDialog.show({
                             title: '提示',
-                            message: '最多只能添加5个自定义时段',
+                            message: `最多只能添加${maxCustomBreaks}个自定义时段`,
                             autoClose: 2000,
                             confirmColor: '#f59e0b'
                         });
                     } else {
-                        alert('最多只能添加5个自定义时段');
+                        alert(`最多只能添加${maxCustomBreaks}个自定义时段`);
                     }
                     return;
                 }
                 
+                const defaultStart = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.DEFAULT_CUSTOM_START : '14:00';
+                const defaultEnd = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.DEFAULT_CUSTOM_END : '15:00';
+                const defaultName = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.DEFAULT_CUSTOM_NAME : '新时段';
+                
                 newConfig.doNotDisturb.customBreaks.push({
-                    start: '14:00',
-                    end: '15:00',
-                    name: '新时段'
+                    start: defaultStart,
+                    end: defaultEnd,
+                    name: defaultName
                 });
                 Config.save();
                 renderCustomBreaks(newConfig.doNotDisturb.customBreaks);

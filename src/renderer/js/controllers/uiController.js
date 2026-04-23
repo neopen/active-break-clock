@@ -144,13 +144,14 @@ const UIController = (function () {
         const customBreaksList = document.getElementById('customBreaksList');
 
         // 加载配置
-        const config = Config.load();
-        const dnd = config.doNotDisturb || { enabled: false, lunchBreak: { enabled: true, start: '12:00', end: '13:00' }, customBreaks: [] };
+        const defaultLunchStart = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.DEFAULT_LUNCH_START : '12:00';
+        const defaultLunchEnd = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.DEFAULT_LUNCH_END : '14:00';
+        const dnd = config.doNotDisturb || { enabled: false, lunchBreak: { enabled: true, start: defaultLunchStart, end: defaultLunchEnd }, customBreaks: [] };
 
         if (dndToggle) dndToggle.checked = dnd.enabled;
         if (lunchBreakToggle) lunchBreakToggle.checked = dnd.lunchBreak?.enabled !== false;
-        if (lunchStart) lunchStart.value = dnd.lunchBreak?.start || '12:00';
-        if (lunchEnd) lunchEnd.value = dnd.lunchBreak?.end || '13:00';
+        if (lunchStart) lunchStart.value = dnd.lunchBreak?.start || defaultLunchStart;
+        if (lunchEnd) lunchEnd.value = dnd.lunchBreak?.end || defaultLunchEnd;
 
         // 渲染自定义时段列表
         renderCustomBreaks(dnd.customBreaks || []);
@@ -171,8 +172,8 @@ const UIController = (function () {
                 if (!newConfig.doNotDisturb) newConfig.doNotDisturb = { enabled: false, lunchBreak: {}, customBreaks: [] };
                 newConfig.doNotDisturb.lunchBreak = {
                     enabled: lunchBreakToggle.checked,
-                    start: lunchStart?.value || '12:00',
-                    end: lunchEnd?.value || '13:00'
+                    start: lunchStart?.value || defaultLunchStart,
+                    end: lunchEnd?.value || defaultLunchEnd
                 };
                 Config.save();
             });
@@ -182,7 +183,7 @@ const UIController = (function () {
             lunchStart.addEventListener('change', () => {
                 const newConfig = Config.load();
                 if (!newConfig.doNotDisturb) newConfig.doNotDisturb = { enabled: false, lunchBreak: {}, customBreaks: [] };
-                if (!newConfig.doNotDisturb.lunchBreak) newConfig.doNotDisturb.lunchBreak = { enabled: true, start: '12:00', end: '13:00' };
+                if (!newConfig.doNotDisturb.lunchBreak) newConfig.doNotDisturb.lunchBreak = { enabled: true, start: defaultLunchStart, end: defaultLunchEnd };
                 newConfig.doNotDisturb.lunchBreak.start = lunchStart.value;
                 Config.save();
             });
@@ -192,7 +193,7 @@ const UIController = (function () {
             lunchEnd.addEventListener('change', () => {
                 const newConfig = Config.load();
                 if (!newConfig.doNotDisturb) newConfig.doNotDisturb = { enabled: false, lunchBreak: {}, customBreaks: [] };
-                if (!newConfig.doNotDisturb.lunchBreak) newConfig.doNotDisturb.lunchBreak = { enabled: true, start: '12:00', end: '13:00' };
+                if (!newConfig.doNotDisturb.lunchBreak) newConfig.doNotDisturb.lunchBreak = { enabled: true, start: defaultLunchStart, end: defaultLunchEnd };
                 newConfig.doNotDisturb.lunchBreak.end = lunchEnd.value;
                 Config.save();
             });
@@ -205,21 +206,27 @@ const UIController = (function () {
                 if (!newConfig.doNotDisturb.customBreaks) newConfig.doNotDisturb.customBreaks = [];
                 
                 // 限制最多5个自定义时段
-                if (newConfig.doNotDisturb.customBreaks.length >= 5) {
+                const maxCustomBreaks = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.MAX_CUSTOM_BREAKS : 5;
+                
+                if (newConfig.doNotDisturb.customBreaks.length >= maxCustomBreaks) {
                     if (typeof AutoCloseDialog !== 'undefined') {
                         AutoCloseDialog.show({
                             title: '提示',
-                            message: '最多只能添加5个自定义时段',
+                            message: `最多只能添加${maxCustomBreaks}个自定义时段`,
                             autoClose: 2000,
                             confirmColor: '#f59e0b'
                         });
                     } else {
-                        alert('最多只能添加5个自定义时段');
+                        alert(`最多只能添加${maxCustomBreaks}个自定义时段`);
                     }
                     return;
                 }
                 
-                newConfig.doNotDisturb.customBreaks.push({ start: '14:00', end: '15:00', name: '新时段' });
+                const defaultStart = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.DEFAULT_CUSTOM_START : '14:00';
+                const defaultEnd = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.DEFAULT_CUSTOM_END : '15:00';
+                const defaultName = CONFIG && CONFIG.DO_NOT_DISTURB ? CONFIG.DO_NOT_DISTURB.DEFAULT_CUSTOM_NAME : '新时段';
+                
+                newConfig.doNotDisturb.customBreaks.push({ start: defaultStart, end: defaultEnd, name: defaultName });
                 Config.save();
                 renderCustomBreaks(newConfig.doNotDisturb.customBreaks);
             });
