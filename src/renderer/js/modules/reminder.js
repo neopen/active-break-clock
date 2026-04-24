@@ -360,23 +360,46 @@ const ReminderModule = (function () {
 
             pendingLock = true;
 
-            // 先播放声音，再显示锁屏
+            // 先播放声音提示三次，然后再显示锁屏
             if (soundEnabled && AudioModule) {
-                console.log('[REMINDER] Playing alert sound and starting continuous');
+                console.log('[REMINDER] Playing alert sounds first');
+                // 播放第一次
                 AudioModule.playAlert();
-                AudioModule.startContinuous();
+                // 延迟播放第二次
+                setTimeout(() => {
+                    AudioModule.playAlert();
+                    // 延迟播放第三次
+                    setTimeout(() => {
+                        AudioModule.playAlert();
+                        // 播放完三次后显示锁屏
+                        setTimeout(() => {
+                            console.log('[REMINDER] Showing lock screen after sound alerts');
+                            showLockScreen(lockMins, forceLock, () => {
+                                console.log('[REMINDER] Lock screen completed callback');
+                                isLocked = false;
+                                pendingLock = false;
+                                isCreatingLock = false;
+                                if (AudioModule) {
+                                    AudioModule.stopContinuous();
+                                }
+                                if (callbacks.onLockClose) callbacks.onLockClose();
+                            });
+                        }, 1000);
+                    }, 2000);
+                }, 2000);
+            } else {
+                // 无声音时直接显示锁屏
+                showLockScreen(lockMins, forceLock, () => {
+                    console.log('[REMINDER] Lock screen completed callback');
+                    isLocked = false;
+                    pendingLock = false;
+                    isCreatingLock = false;
+                    if (AudioModule) {
+                        AudioModule.stopContinuous();
+                    }
+                    if (callbacks.onLockClose) callbacks.onLockClose();
+                });
             }
-
-            showLockScreen(lockMins, forceLock, () => {
-                console.log('[REMINDER] Lock screen completed callback');
-                isLocked = false;
-                pendingLock = false;
-                isCreatingLock = false;
-                if (AudioModule) {
-                    AudioModule.stopContinuous();
-                }
-                if (callbacks.onLockClose) callbacks.onLockClose();
-            });
         }
     }
 

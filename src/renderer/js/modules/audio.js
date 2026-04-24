@@ -73,20 +73,23 @@ const AudioModule = (function () {
     function startContinuous() {
         if (!isEnabled) return;
         // 重置声音计数器
-        soundCounter = 0;
-        playAlert();
-        soundCounter++;
-        stopContinuous();
-        currentSoundInterval = setInterval(() => {
-            if (isLockedGetter && isLockedGetter() && isEnabled && soundCounter < MAX_SOUND_PLAYS) {
-                playAlert();
-                soundCounter++;
-                // 如果达到最大次数，停止连续播放
-                if (soundCounter >= MAX_SOUND_PLAYS) {
-                    stopContinuous();
-                }
-            }
-        }, 3000);
+        // soundCounter = 0;
+        // playAlert();
+        // soundCounter++;
+        // stopContinuous();
+        // currentSoundInterval = setInterval(() => {
+        //     if (isLockedGetter && isLockedGetter() && isEnabled && soundCounter < MAX_SOUND_PLAYS) {
+        //         playAlert();
+        //         soundCounter++;
+        //         // 如果达到最大次数，停止连续播放
+        //         if (soundCounter >= MAX_SOUND_PLAYS) {
+        //             stopContinuous();
+        //         }
+        //     }
+        // }, 3000);
+        // 现在我们在显示锁屏之前已经播放了三次声音提示
+        // 所以锁屏期间不再需要连续播放声音
+        console.log('[AUDIO] startContinuous called, but no longer needed');
     }
 
     async function resume() {
