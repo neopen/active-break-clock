@@ -9,15 +9,12 @@ const UIController = (function () {
 
     // 切换锁屏设置显示/隐藏
     function toggleLockSettings(notificationType) {
-        const titleEl = _elements.lockSettingsTitle;
         const contentEl = _elements.lockSettingsContent;
 
-        if (titleEl && contentEl) {
+        if (contentEl) {
             if (notificationType === 'desktop') {
-                titleEl.style.display = 'none';
                 contentEl.style.display = 'none';
             } else {
-                titleEl.style.display = 'block';
                 contentEl.style.display = 'block';
             }
         }
@@ -130,6 +127,21 @@ const UIController = (function () {
                 }
             });
         }
+
+        // 折叠功能
+        document.querySelectorAll('.card-title').forEach(title => {
+            title.addEventListener('click', () => {
+                const targetId = title.dataset.target;
+                if (targetId) {
+                    const content = document.getElementById(targetId);
+                    const icon = title.querySelector('.collapse-icon');
+                    if (content && icon) {
+                        content.classList.toggle('hidden');
+                        icon.textContent = content.classList.contains('hidden') ? '▶' : '▼';
+                    }
+                }
+            });
+        });
 
         logger.info('Events bound');
     }
