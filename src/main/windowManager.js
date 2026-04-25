@@ -12,9 +12,16 @@ let tray = null;
 let isLockWindowClosing = false;
 let isRestoringMain = false;
 let wasMainWindowVisible = true; // 保存主窗口的可见状态
+let systemLockEnabled = false; // 系统锁屏设置
 
 // 调用系统锁屏
 function lockSystem() {
+    // 只有当系统锁屏功能启用时才执行
+    if (!systemLockEnabled) {
+        console.log('[WindowManager] System lock disabled, skipping');
+        return;
+    }
+    
     try {
         console.log('[WindowManager] Locking system');
 
@@ -205,8 +212,11 @@ function initPowerManagement() {
 }
 
 // 创建锁屏窗口
-function createLockWindow(durationSeconds, forceLock) {
-    console.log('[WindowManager] Creating lock window:', durationSeconds, 's, forceLock:', forceLock);
+function createLockWindow(durationSeconds, forceLock, systemLock) {
+    console.log('[WindowManager] Creating lock window:', durationSeconds, 's, forceLock:', forceLock, 'systemLock:', systemLock);
+
+    // 存储系统锁屏设置
+    systemLockEnabled = systemLock || false;
 
     // 检查系统是否处于锁屏状态
     const systemIdleState = powerMonitor.getSystemIdleState(60); // 60秒空闲

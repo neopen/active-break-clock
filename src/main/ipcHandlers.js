@@ -7,8 +7,8 @@ function initIpcHandlers() {
 
     // ========== 锁屏相关 ==========
 
-    ipcMain.on('show-lock', (event, duration, forceLock) => {
-        console.log('[IPC] show-lock:', duration, forceLock);
+    ipcMain.on('show-lock', (event, duration, forceLock, systemLock) => {
+        console.log('[IPC] show-lock:', duration, forceLock, systemLock);
 
         // 检查系统是否已锁定
         try {
@@ -31,7 +31,7 @@ function initIpcHandlers() {
             mainWindow.setEnabled(false);
             mainWindow.setAlwaysOnTop(false);
         }
-        windowManager.createLockWindow(duration, forceLock);
+        windowManager.createLockWindow(duration, forceLock, systemLock);
     });
 
     ipcMain.on('lock-complete', () => {
