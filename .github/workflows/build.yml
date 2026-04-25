@@ -49,6 +49,19 @@ jobs:
         CSC_IDENTITY_AUTO_DISCOVERY: false
         WIN_CSC_LINK: ""
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build macOS app
+      if: matrix.platform == 'mac'
+      run: npx electron-builder --mac --publish never
+      env:
+        # 完全禁用代码签名
+        CSC_IDENTITY_AUTO_DISCOVERY: false
+        CSC_IDENTITY: ""
+        CSC_FORCE_NO_SIGN: true
+        ELECTRON_BUILDER_ALLOW_UNSIGNED: true
+        APPLE_ID: ""
+        APPLE_TEAM_ID: ""
+        APPLE_ID_PASSWORD: ""
     
     - uses: actions/upload-artifact@v4
       with:
