@@ -1,9 +1,8 @@
 # 定时提醒 - 拒绝久坐
 
-一款强制提醒活动的桌面应用，帮助久坐用户定时起身活动，支持锁屏强制提醒、桌面通知、每日打卡统计。
+一款强制提醒活动的桌面应用，帮助久坐用户定时起身活动（防久坐），支持锁屏强制提醒、桌面通知、每日打卡统计。
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-brightgreen)]()
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)  [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-brightgreen)]()
 
 
 
@@ -11,12 +10,12 @@
 
 ### 核心功能
 - **自定义时间段** - 设置工作时段（如 8:00 - 18:00），只在需要的时间段内提醒，支持跨天设置
-- **灵活提醒频率** - 10 ~ 300 分钟可调，步长 10 分钟，满足不同工作节奏
+- **灵活提醒频率** - 10 ~ 300 分钟可调，步长 5 分钟，满足不同工作节奏
 - **强制锁屏模式** - 开启后弹框期间无法关闭，必须等待倒计时结束，真正强制活动
 - **可配置锁屏时长** - 1 ~ 30 分钟自由调节
 - **声音提示** - 提醒时播放蜂鸣音效，弹框期间每隔 3 秒循环提醒
-- **桌面通知** - 支持系统级通知，即使浏览器在后台也能收到提醒
-- **应用窗口自动前置** - 提醒时应用窗口自动弹到最前面，确保不会错过
+- **桌面通知** - 支持系统级通知，即使应用在后台运行也能收到提醒
+- **锁屏弹框** - 提醒时应用窗口自动弹到最前面，确保不会错过
 
 ### 统计与反馈
 - **每日打卡统计** - 记录今日活动次数、连续打卡天数
@@ -32,23 +31,17 @@
 - **响应式布局** - 完美适配手机、平板、电脑
 - **自动关闭提示** - 成功提示 3 秒后自动消失，带进度条动画
 
-### 弹框特性
-- **应用内全屏遮罩** - 提醒时全屏覆盖应用窗口
-- **窗口自动置顶** - 调用原生 API 将应用窗口置顶
-- **无关闭按钮** - 强制模式下没有 X 关闭按钮，必须等倒计时结束
-- **自动恢复** - 提醒结束后自动恢复窗口状态
-
 
 
 ## 界面预览
 
 ### 主界面
 
-<img src="./imgs/screenshots/screenshot-1.png" alt="image-20260423113635497" style="zoom:67%;" />
+![image-20260425181747216](./imgs/screenshots-1.png)
 
 ### 锁屏提醒界面
 
-<img src="./imgs/screenshots/screenshot-2.png" alt="screenshot-2" style="zoom:67%;" />
+<img src="./imgs/screenshot-2.png" alt="screenshot-2" style="zoom:67%;" />
 
 
 
@@ -60,7 +53,6 @@
 
 > 建议使用 Chrome/Edge/Safari 等现代浏览器，可获得最佳体验。
 >
-> 不支持【桌面通知】，弹窗也有限
 
 ### 方式二：PWA 安装
 
@@ -74,9 +66,9 @@
 
 ### 方式三：安装桌面应用（推荐）
 
-下载安装 exe 软件：[GitHub Releases](https://github.com/neopen/active-break-clock/releases) 找最新版下载
+下载安装 exe 软件：[GitHub Releases](https://github.com/neopen/active-break-clock/releases) 找最新稳定版下载
 
-支持平台：Windows（测试通过）、macOS（尚未测试）、Linux（尚未测试）
+支持平台：Windows（通过）、macOS（尚未测试）、Linux（尚未测试）
 
 
 
