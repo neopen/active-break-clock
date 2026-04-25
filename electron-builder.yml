@@ -66,10 +66,8 @@ mac:
     - zip
   icon: src/renderer/icons/icon-512.icns
   category: public.app-category.healthcare-fitness
-  entitlements: ./entitlements.mac.plist
-  entitlementsInherit: ./entitlements.mac.plist
   gatekeeperAssess: false
-  hardenedRuntime: true
+  hardenedRuntime: false
   asar: true
   asarUnpack: "**/*.node"
   artifactName: HealthClock-${version}-${arch}.${ext}
