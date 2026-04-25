@@ -50,6 +50,15 @@ const CONFIG = {
         LOCK: 'lock'            // 锁屏通知
     },
 
+    // 功能开关默认值
+    DEFAULTS: {
+        DO_NOT_DISTURB_ENABLED: true,    // 免打扰默认开启
+        SOUND_ENABLED: true,              // 声音提示默认开启
+        FORCE_LOCK: true,                // 强制锁屏默认开启
+        SYSTEM_LOCK: false,               // 系统锁屏默认关闭
+        AUTO_LAUNCH: false                // 开机自启动默认关闭
+    },
+
     // 版本信息
     VERSION: '0.5'
 };
