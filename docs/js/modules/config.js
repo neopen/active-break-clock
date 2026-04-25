@@ -68,13 +68,14 @@ const Config = (function () {
             endTime: '18:00',
             intervalMinutes: CONFIG ? CONFIG.TIME.DEFAULT_INTERVAL : 40,
             lockMinutes: CONFIG ? CONFIG.TIME.DEFAULT_LOCK : 5,
-            forceLock: false,
-            soundEnabled: true,
+            forceLock: CONFIG ? CONFIG.DEFAULTS.FORCE_LOCK : false,
+            systemLock: CONFIG ? CONFIG.DEFAULTS.SYSTEM_LOCK : false,
+            soundEnabled: CONFIG ? CONFIG.DEFAULTS.SOUND_ENABLED : true,
             notificationType: CONFIG ? CONFIG.NOTIFICATION_TYPE.DESKTOP : 'desktop',
 
             // 免打扰配置
             doNotDisturb: {
-                enabled: false,
+                enabled: CONFIG ? CONFIG.DEFAULTS.DO_NOT_DISTURB_ENABLED : false,
                 lunchBreak: {
                     start: CONFIG ? CONFIG.DO_NOT_DISTURB.DEFAULT_LUNCH_START : '12:00',
                     end: CONFIG ? CONFIG.DO_NOT_DISTURB.DEFAULT_LUNCH_END : '14:00'
@@ -121,6 +122,7 @@ const Config = (function () {
         if (_elements.intervalMinutes) _elements.intervalMinutes.value = _config.intervalMinutes;
         if (_elements.lockMinutes) _elements.lockMinutes.value = _config.lockMinutes;
         if (_elements.forceLockToggle) _elements.forceLockToggle.checked = _config.forceLock;
+        if (_elements.systemLockToggle) _elements.systemLockToggle.checked = _config.systemLock;
         if (_elements.soundToggle) _elements.soundToggle.checked = _config.soundEnabled;
 
         // 设置通知类型单选按钮
@@ -149,6 +151,7 @@ const Config = (function () {
         if (_elements.intervalMinutes) _config.intervalMinutes = parseInt(_elements.intervalMinutes.value);
         if (_elements.lockMinutes) _config.lockMinutes = parseInt(_elements.lockMinutes.value);
         if (_elements.forceLockToggle) _config.forceLock = _elements.forceLockToggle.checked;
+        if (_elements.systemLockToggle) _config.systemLock = _elements.systemLockToggle.checked;
         if (_elements.soundToggle) _config.soundEnabled = _elements.soundToggle.checked;
 
         // 保存通知类型
@@ -216,7 +219,7 @@ const Config = (function () {
     function validateLockMinutes(value, min, max) {
         const num = parseInt(value);
         const defaultMin = CONFIG ? CONFIG.TIME.MIN_LOCK : 1;
-        const defaultMax = CONFIG ? CONFIG.TIME.MAX_LOCK : 30;
+        const defaultMax = CONFIG ? CONFIG.TIME.MAX_LOCK : 120;
         const finalMin = min !== undefined ? min : defaultMin;
         const finalMax = max !== undefined ? max : defaultMax;
         return !isNaN(num) && num >= finalMin && num <= finalMax;
@@ -240,7 +243,7 @@ const Config = (function () {
     function fixLockValue(value, min, max) {
         let num = parseInt(value);
         const defaultMin = CONFIG ? CONFIG.TIME.MIN_LOCK : 1;
-        const defaultMax = CONFIG ? CONFIG.TIME.MAX_LOCK : 30;
+        const defaultMax = CONFIG ? CONFIG.TIME.MAX_LOCK : 120;
         const defaultLock = CONFIG ? CONFIG.TIME.DEFAULT_LOCK : 5;
         const finalMin = min !== undefined ? min : defaultMin;
         const finalMax = max !== undefined ? max : defaultMax;

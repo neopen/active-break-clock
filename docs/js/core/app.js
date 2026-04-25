@@ -22,7 +22,7 @@
         soundToggle: document.getElementById('soundToggle'),
         desktopNotification: document.getElementById('desktopNotification'),
         lockNotification: document.getElementById('lockNotification'),
-        lockSettingsTitle: document.getElementById('lockSettingsTitle'),
+        systemLockToggle: document.getElementById('systemLockToggle'),
         lockSettingsContent: document.getElementById('lockSettingsContent'),
         startBtn: document.getElementById('startBtn'),
         stopBtn: document.getElementById('stopBtn'),
@@ -257,6 +257,20 @@
             const { ipcRenderer } = window.require('electron');
             ipcRenderer.on('stop-sound', () => AudioModule.stopContinuous());
             ipcRenderer.on('lock-closed', () => {
+                ReminderModule.resetLockStates();
+                if (ReminderModule.isReminderRunning()) {
+                    const now = new Date();
+                    const config = Config.load();
+                    const next = ReminderModule.calculateNextReminder(now, config);
+                    ReminderModule.setNextReminderTime(next.getTime());
+                    UIModule.updateNextReminderDisplay(next.getTime());
+                }
+                ReminderModule.startCheckLoop();
+                AudioModule.stopContinuous();
+            });
+            // 系统已锁定，跳过锁屏的处理
+            ipcRenderer.on('lock-skipped', () => {
+                console.log('[APP] Lock skipped due to system lock');
                 ReminderModule.resetLockStates();
                 if (ReminderModule.isReminderRunning()) {
                     const now = new Date();

@@ -195,12 +195,13 @@ const ReminderModule = (function () {
         if (typeof window !== 'undefined' && window.require) {
             try {
                 const { ipcRenderer } = window.require('electron');
+                const systemLock = Config.get('systemLock');
 
                 console.log('[REMINDER] Setting isLocked to true');
                 isLocked = true;
-                // 传递秒数给主进程
-                console.log('[REMINDER] Sending show-lock to main process, durationSeconds:', totalSeconds, 'forceLock:', forceLock);
-                ipcRenderer.send('show-lock', totalSeconds, forceLock);
+                // 传递秒数、强制锁屏和系统锁屏设置给主进程
+                console.log('[REMINDER] Sending show-lock to main process, durationSeconds:', totalSeconds, 'forceLock:', forceLock, 'systemLock:', systemLock);
+                ipcRenderer.send('show-lock', totalSeconds, forceLock, systemLock);
 
                 // 注意：在 Electron 环境中，我们不在这里监听事件
                 // 而是在 app.js 中通过 ipcRenderer.on('lock-closed') 来处理
@@ -360,23 +361,46 @@ const ReminderModule = (function () {
 
             pendingLock = true;
 
-            // 先播放声音，再显示锁屏
+            // 先播放声音提示三次，然后再显示锁屏
             if (soundEnabled && AudioModule) {
-                console.log('[REMINDER] Playing alert sound and starting continuous');
+                console.log('[REMINDER] Playing alert sounds first');
+                // 播放第一次
                 AudioModule.playAlert();
-                AudioModule.startContinuous();
+                // 延迟播放第二次
+                setTimeout(() => {
+                    AudioModule.playAlert();
+                    // 延迟播放第三次
+                    setTimeout(() => {
+                        AudioModule.playAlert();
+                        // 播放完三次后显示锁屏
+                        setTimeout(() => {
+                            console.log('[REMINDER] Showing lock screen after sound alerts');
+                            showLockScreen(lockMins, forceLock, () => {
+                                console.log('[REMINDER] Lock screen completed callback');
+                                isLocked = false;
+                                pendingLock = false;
+                                isCreatingLock = false;
+                                if (AudioModule) {
+                                    AudioModule.stopContinuous();
+                                }
+                                if (callbacks.onLockClose) callbacks.onLockClose();
+                            });
+                        }, 1000);
+                    }, 2000);
+                }, 2000);
+            } else {
+                // 无声音时直接显示锁屏
+                showLockScreen(lockMins, forceLock, () => {
+                    console.log('[REMINDER] Lock screen completed callback');
+                    isLocked = false;
+                    pendingLock = false;
+                    isCreatingLock = false;
+                    if (AudioModule) {
+                        AudioModule.stopContinuous();
+                    }
+                    if (callbacks.onLockClose) callbacks.onLockClose();
+                });
             }
-
-            showLockScreen(lockMins, forceLock, () => {
-                console.log('[REMINDER] Lock screen completed callback');
-                isLocked = false;
-                pendingLock = false;
-                isCreatingLock = false;
-                if (AudioModule) {
-                    AudioModule.stopContinuous();
-                }
-                if (callbacks.onLockClose) callbacks.onLockClose();
-            });
         }
     }
 
@@ -464,6 +488,23 @@ const ReminderModule = (function () {
         console.log('[REMINDER] Lock states reset:', { isLocked, pendingLock, isCreatingLock });
     }
 
+    // 检查系统是否处于锁屏状态
+    function isSystemLocked() {
+        // 在 Electron 环境中，我们可以通过 powerMonitor 或系统 API 检查
+        if (typeof window !== 'undefined' && window.require) {
+            try {
+                const { powerMonitor } = window.require('electron');
+                // 检查系统是否处于空闲状态（通常表示锁屏）
+                const systemIdleState = powerMonitor.getSystemIdleState(60); // 60秒空闲
+                return systemIdleState === 'locked';
+            } catch (e) {
+                console.error('[REMINDER] Failed to check system lock state:', e);
+                return false;
+            }
+        }
+        return false;
+    }
+
     // 主检查循环
     function checkAndRemind() {
         if (!isRunning) {
@@ -476,6 +517,10 @@ const ReminderModule = (function () {
         }
         if (pendingLock) {
             console.log('[REMINDER] Check skipped: pending lock');
+            return;
+        }
+        if (isSystemLocked()) {
+            console.log('[REMINDER] Check skipped: system is locked');
             return;
         }
 

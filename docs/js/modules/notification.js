@@ -2,9 +2,129 @@ const NotificationModule = (function () {
     let isEnabled = true;
     let permissionGranted = false;
     let _logger = typeof Logger !== 'undefined' ? Logger.createLogger('Notification') : console;
+    let toastContainer = null;
 
     function isElectron() {
         return typeof window !== 'undefined' && !!window.require;
+    }
+
+    // 创建右下角弹框容器
+    function ensureToastContainer() {
+        if (toastContainer) return toastContainer;
+
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999999;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 10px;
+            pointer-events: none;
+        `;
+        document.body.appendChild(toastContainer);
+        return toastContainer;
+    }
+
+    // 显示右下角弹框
+    function showToast(title, body, duration = 5000) {
+        ensureToastContainer();
+
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            min-width: 280px;
+            max-width: 400px;
+            animation: toastSlideIn 0.3s ease;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        `;
+
+        const titleEl = document.createElement('div');
+        titleEl.style.cssText = `
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        `;
+        titleEl.textContent = title;
+
+        const bodyEl = document.createElement('div');
+        bodyEl.style.cssText = `
+            font-size: 14px;
+            opacity: 0.9;
+            line-height: 1.4;
+        `;
+        bodyEl.textContent = body;
+
+        toast.appendChild(titleEl);
+        toast.appendChild(bodyEl);
+
+        // 点击关闭
+        toast.addEventListener('click', () => {
+            removeToast(toast);
+        });
+
+        // 添加到容器
+        toastContainer.appendChild(toast);
+
+        // 自动消失
+        setTimeout(() => {
+            removeToast(toast);
+        }, duration);
+
+        _logger.info('Toast notification shown:', title);
+
+        return toast;
+    }
+
+    // 移除弹框
+    function removeToast(toast) {
+        if (!toast || !toast.parentNode) return;
+
+        toast.style.animation = 'toastSlideOut 0.3s ease';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }
+
+    // 添加动画样式
+    function addToastStyles() {
+        if (document.getElementById('toast-styles')) return;
+
+        const style = document.createElement('style');
+        style.id = 'toast-styles';
+        style.textContent = `
+            @keyframes toastSlideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes toastSlideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     async function init() {
@@ -120,38 +240,11 @@ const NotificationModule = (function () {
             }
         }
 
-        // 浏览器环境
-        if (!('Notification' in window)) {
-            _logger.warn('Notifications not supported');
-            return false;
-        }
-
-        if (Notification.permission !== 'granted') {
-            _logger.warn('No notification permission');
-            return false;
-        }
-
-        try {
-            const notification = new Notification(title, {
-                body: options.body || '',
-                icon: './icons/icon-64.png',
-                requireInteraction: options.requireInteraction || false,
-                tag: options.tag || 'health-reminder'
-            });
-
-            notification.onclick = () => {
-                _logger.info('Notification clicked');
-                window.focus();
-                notification.close();
-            };
-
-            setTimeout(() => notification.close(), 5000);
-            _logger.info('Browser notification sent successfully');
-            return true;
-        } catch (e) {
-            _logger.error('Send notification error:', e);
-            return false;
-        }
+        // 浏览器环境 - 使用右下角弹框
+        addToastStyles();
+        showToast(title, options.body || '', 5000);
+        _logger.info('Toast notification sent successfully');
+        return true;
     }
 
     async function sendReminder() {
