@@ -43,16 +43,20 @@ win:
   asarUnpack: "**/*.node"
   compression: maximum
   requestedExecutionLevel: asInvoker
+  publish:
+    - provider: github
+      protocol: https
+    - bitbucket
 
 nsis:
   oneClick: false
-  perMachine: true
+  perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 别坐了
   runAfterFinish: true
-  deleteAppDataOnUninstall: true
+  deleteAppDataOnUninstall: false
   artifactName: HealthClock-${version}-x64-Setup.${ext}
 
 portable:
@@ -73,8 +77,6 @@ mac:
   artifactName: HealthClock-${version}-${arch}.${ext}
   # null 表示跳过签名
   identity: null
-  certificateFile: null
-  signAndNotarize: false
 
 # DMG 配置
 dmg:

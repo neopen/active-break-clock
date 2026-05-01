@@ -253,6 +253,33 @@ function initIpcHandlers() {
         }
     });
 
+    // ========== 版本更新检查 ==========
+
+    const UpdateChecker = require('./utils/updateChecker');
+
+    ipcMain.handle('check-for-update', async () => {
+        console.log('[IPC] check-for-update');
+        try {
+            const result = await UpdateChecker.checkForUpdateWithRetry(2, 1000);
+            console.log('[IPC] Update check result:', result);
+            return result;
+        } catch (e) {
+            console.error('[IPC] Update check failed:', e);
+            return {
+                hasUpdate: false,
+                currentVersion: app.getVersion(),
+                latestVersion: null,
+                releaseUrl: null,
+                releaseNotes: null,
+                error: e.message
+            };
+        }
+    });
+
+    ipcMain.handle('get-app-version', () => {
+        return app.getVersion();
+    });
+
     console.log('[IPC] All handlers initialized');
 }
 

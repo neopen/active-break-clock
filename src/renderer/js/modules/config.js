@@ -179,7 +179,7 @@ const Config = (function () {
         const hintEl = document.getElementById('notificationHint');
         if (hintEl) {
             if (type === 'desktop') {
-                hintEl.innerHTML = '💡 桌面通知：仅弹窗提醒，不锁屏（需开启系统通知权限）';
+                hintEl.innerHTML = '💡 桌面通知：弹窗提醒（需开启系统通知权限）';
             } else {
                 hintEl.innerHTML = '💡 锁屏通知：全屏锁屏，强制休息';
             }

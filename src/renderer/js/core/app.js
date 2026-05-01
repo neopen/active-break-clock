@@ -39,7 +39,11 @@
         continuousDays: document.getElementById('continuousDays'),
         weeklyRate: document.getElementById('weeklyRate'),
         resetStatsBtn: document.getElementById('resetStatsBtn'),
-        testNotifyBtn: document.getElementById('testNotifyBtn')
+        testNotifyBtn: document.getElementById('testNotifyBtn'),
+        updateBanner: document.getElementById('updateBanner'),
+        updateVersion: document.getElementById('updateVersion'),
+        updateLink: document.getElementById('updateLink'),
+        updateCloseBtn: document.getElementById('updateCloseBtn')
     };
 
     // 初始化各模块
@@ -237,6 +241,9 @@
     ReminderModule.closeLockScreen();
     NotificationModule.initWithoutWait();
 
+    // 初始化版本更新检查
+    initUpdateChecker();
+
     // 页面关闭提醒
     window.addEventListener('beforeunload', (e) => {
         if (ReminderModule.isReminderRunning()) {
@@ -282,9 +289,107 @@
                 ReminderModule.startCheckLoop();
                 AudioModule.stopContinuous();
             });
+            // 系统锁屏，暂停计时器
+            ipcRenderer.on('pause-reminder', () => {
+                console.log('[APP] System locked, pausing reminder timer');
+                ReminderModule.pauseTimer();
+            });
+            // 系统解锁，恢复计时器（从0开始）
+            ipcRenderer.on('resume-reminder', () => {
+                console.log('[APP] System unlocked, resuming reminder timer from start');
+                ReminderModule.resumeTimerFromStart();
+            });
         } catch (e) {
             logger.error('Failed to setup IPC listener:', e);
         }
+    }
+
+    // 版本更新检查
+    function initUpdateChecker() {
+        // 如果不在 Electron 环境中，跳过更新检查
+        if (!window.require && !window.electronAPI) {
+            console.log('[APP] Not in Electron environment, skipping update check');
+            return;
+        }
+
+        // 检查更新
+        checkForAppUpdate();
+
+        // 绑定关闭按钮事件
+        if (elements.updateCloseBtn) {
+            elements.updateCloseBtn.addEventListener('click', () => {
+                hideUpdateBanner();
+                // 记录用户已关闭本次提示
+                localStorage.setItem('updateDismissed', 'true');
+            });
+        }
+
+        // 绑定更新链接点击事件
+        if (elements.updateLink) {
+            elements.updateLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                // 打开外部链接
+                if (window.electronAPI && window.electronAPI.openExternal) {
+                    window.electronAPI.openExternal(elements.updateLink.href);
+                } else if (typeof require !== 'undefined') {
+                    const { shell } = require('electron');
+                    shell.openExternal(elements.updateLink.href);
+                } else {
+                    window.open(elements.updateLink.href, '_blank');
+                }
+            });
+        }
+    }
+
+    async function checkForAppUpdate() {
+        try {
+            // 检查是否已经显示过
+            const lastCheck = localStorage.getItem('lastUpdateCheck');
+            const dismissed = localStorage.getItem('updateDismissed');
+            const oneDay = 24 * 60 * 60 * 1000;
+
+            // 如果用户已经关闭过提示，且在24小时内，不再显示
+            if (dismissed === 'true' && lastCheck && (Date.now() - parseInt(lastCheck)) < oneDay) {
+                console.log('[APP] Update banner dismissed recently, skipping check');
+                return;
+            }
+
+            console.log('[APP] Checking for updates...');
+
+            let result;
+            if (window.electronAPI && window.electronAPI.checkForUpdate) {
+                result = await window.electronAPI.checkForUpdate();
+            } else {
+                console.log('[APP] checkForUpdate not available');
+                return;
+            }
+
+            console.log('[APP] Update check result:', result);
+
+            if (result.hasUpdate) {
+                showUpdateBanner(result.latestVersion, result.releaseUrl);
+                localStorage.setItem('lastUpdateCheck', Date.now().toString());
+                localStorage.removeItem('updateDismissed');
+            }
+        } catch (e) {
+            console.error('[APP] Update check failed:', e);
+        }
+    }
+
+    function showUpdateBanner(version, url) {
+        if (!elements.updateBanner) return;
+
+        elements.updateVersion.textContent = version;
+        if (elements.updateLink && url) {
+            elements.updateLink.href = url;
+        }
+        elements.updateBanner.classList.remove('hidden');
+        console.log('[APP] Update banner shown for version:', version);
+    }
+
+    function hideUpdateBanner() {
+        if (!elements.updateBanner) return;
+        elements.updateBanner.classList.add('hidden');
     }
 
     logger.info('App initialized successfully');

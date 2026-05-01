@@ -199,14 +199,18 @@ function initPowerManagement() {
         if (keyboardBlocker.isActive()) {
             keyboardBlocker.stopBlocking();
         }
+        // 通知渲染进程暂停计时器
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('pause-reminder');
+        }
     });
 
     // 系统解锁
     powerMonitor.on('unlock-screen', () => {
         console.log('[WindowManager] System screen unlocked');
-        // 通知渲染进程重置锁状态
+        // 通知渲染进程恢复计时器（从0开始）
         if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('lock-skipped');
+            mainWindow.webContents.send('resume-reminder');
         }
     });
 }

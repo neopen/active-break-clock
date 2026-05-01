@@ -39,8 +39,7 @@ export default defineConfig({
         },
         build: {
             outDir: 'dist/renderer',
-            minify: false,  // 暂时关闭压缩方便调试
-            // 关键：配置 rollupOptions
+            minify: true,  // false 关闭压缩方便调试
             rollupOptions: {
                 input: {
                     index: resolve(__dirname, 'src/renderer/index.html'),

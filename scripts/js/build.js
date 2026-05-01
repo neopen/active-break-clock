@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔨 Building application...\n');
+console.log(' Building application...\n');
 
 const distDir = path.join(__dirname, '../../dist');
 
@@ -13,34 +13,34 @@ if (fs.existsSync(distDir)) {
 fs.mkdirSync(distDir, { recursive: true });
 
 // 2. 复制主进程
-console.log('\n📦 Copying main process...');
+console.log('\n Copying main process...');
 copyDir(
     path.join(__dirname, '../../src/main'),
     path.join(distDir, 'main')
 );
 
 // 3. 复制预加载
-console.log('\n📦 Copying preload...');
+console.log('\n Copying preload...');
 copyDir(
     path.join(__dirname, '../../src/preload'),
     path.join(distDir, 'preload')
 );
 
 // 4. 复制渲染进程（完整复制）
-console.log('\n📦 Copying renderer...');
+console.log('\n Copying renderer...');
 copyDir(
     path.join(__dirname, '../../src/renderer'),
     path.join(distDir, 'renderer')
 );
 
-console.log('\n✨ Build complete!');
-console.log('📂 dist/main - 主进程');
-console.log('📂 dist/preload - 预加载脚本');
-console.log('📂 dist/renderer - 渲染进程');
+console.log('\n Build complete!');
+console.log(' dist/main - 主进程');
+console.log(' dist/preload - 预加载脚本');
+console.log(' dist/renderer - 渲染进程');
 
 function copyDir(src, dest) {
     if (!fs.existsSync(src)) {
-        console.log(`  ⚠️  Source not found: ${src}`);
+        console.log(`    Source not found: ${src}`);
         return;
     }
 
@@ -59,5 +59,5 @@ function copyDir(src, dest) {
             fs.copyFileSync(srcPath, destPath);
         }
     }
-    console.log(`  ✅ ${path.basename(src)}`);
+    console.log(`   ${path.basename(src)}`);
 }
