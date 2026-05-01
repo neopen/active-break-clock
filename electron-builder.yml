@@ -76,8 +76,6 @@ mac:
   artifactName: HealthClock-${version}-${arch}.${ext}
   # null 表示跳过签名
   identity: null
-  certificateFile: null
-  signAndNotarize: false
 
 # DMG 配置
 dmg:
