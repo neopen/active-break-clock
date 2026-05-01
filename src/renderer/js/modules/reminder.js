@@ -12,6 +12,8 @@ const ReminderModule = (function () {
     let unlockBtn = null;
     let lockOverlay = null;
     let pendingLock = false;
+    let isPaused = false; // 计时器是否被暂停
+    let pauseTimestamp = null; // 暂停时的时间戳
 
     let onReminderTrigger = null;
     let onLockClose = null;
@@ -488,6 +490,52 @@ const ReminderModule = (function () {
         console.log('[REMINDER] Lock states reset:', { isLocked, pendingLock, isCreatingLock });
     }
 
+    // 暂停计时器（系统锁屏时调用）
+    function pauseTimer() {
+        console.log('[REMINDER] pauseTimer called');
+        if (!isRunning || isPaused) {
+            console.log('[REMINDER] Timer not running or already paused, skipping');
+            return;
+        }
+        isPaused = true;
+        pauseTimestamp = Date.now();
+        console.log('[REMINDER] Timer paused at:', pauseTimestamp);
+
+        // 停止检查循环
+        if (checkInterval) {
+            clearInterval(checkInterval);
+            checkInterval = null;
+        }
+
+        // 停止声音
+        if (AudioModule) {
+            AudioModule.stopContinuous();
+        }
+    }
+
+    // 从0开始恢复计时器（系统解锁时调用）
+    function resumeTimerFromStart() {
+        console.log('[REMINDER] resumeTimerFromStart called');
+        if (!isRunning) {
+            console.log('[REMINDER] Timer not running, skipping');
+            return;
+        }
+        isPaused = false;
+        pauseTimestamp = null;
+
+        // 重置下次提醒时间，从当前时间重新计算
+        if (ConfigModule) {
+            const config = ConfigModule.load();
+            const now = new Date();
+            const next = calculateNextReminder(now, config);
+            nextReminderTimestamp = next.getTime();
+            console.log('[REMINDER] Next reminder reset to:', nextReminderTimestamp, 'from:', now.getTime());
+        }
+
+        // 重新启动检查循环
+        startCheckLoop();
+    }
+
     // 检查系统是否处于锁屏状态
     function isSystemLocked() {
         // 在 Electron 环境中，我们可以通过 powerMonitor 或系统 API 检查
@@ -617,6 +665,8 @@ const ReminderModule = (function () {
         clearMainInterval,
         startCheckLoop,
         resetLockStates,
+        pauseTimer,
+        resumeTimerFromStart,
         unlock,
         closeLockScreen: manualCloseLockScreen,
         checkAndRemind

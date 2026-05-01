@@ -282,6 +282,16 @@
                 ReminderModule.startCheckLoop();
                 AudioModule.stopContinuous();
             });
+            // 系统锁屏，暂停计时器
+            ipcRenderer.on('pause-reminder', () => {
+                console.log('[APP] System locked, pausing reminder timer');
+                ReminderModule.pauseTimer();
+            });
+            // 系统解锁，恢复计时器（从0开始）
+            ipcRenderer.on('resume-reminder', () => {
+                console.log('[APP] System unlocked, resuming reminder timer from start');
+                ReminderModule.resumeTimerFromStart();
+            });
         } catch (e) {
             logger.error('Failed to setup IPC listener:', e);
         }
