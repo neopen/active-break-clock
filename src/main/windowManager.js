@@ -50,7 +50,7 @@ function createMainWindow() {
     console.log('[WindowManager] Creating main window');
 
     mainWindow = new BrowserWindow({
-        width: 500,
+        width: 630,
         height: 750,
         resizable: true,
         frame: true,
@@ -140,10 +140,20 @@ function createTray() {
 function initPowerManagement() {
     console.log('[WindowManager] Initializing power management');
 
+    let isSystemPaused = false; // 追踪系统暂停状态，避免重复发送
+
     // 系统即将休眠
     powerMonitor.on('suspend', () => {
         console.log('[WindowManager] System is suspending');
-        // 清理资源
+        // 清理锁屏相关资源
+        if (lockWindow && !lockWindow.isDestroyed()) {
+            try {
+                lockWindow.destroy();
+                lockWindow = null;
+            } catch (error) {
+                console.error('[WindowManager] Error destroying lock window on suspend:', error);
+            }
+        }
         if (lockTimer) {
             clearTimeout(lockTimer);
             lockTimer = null;
@@ -151,6 +161,11 @@ function initPowerManagement() {
         // 停止键盘拦截
         if (keyboardBlocker.isActive()) {
             keyboardBlocker.stopBlocking();
+        }
+        // 通知渲染进程暂停计时器
+        if (mainWindow && !mainWindow.isDestroyed() && !isSystemPaused) {
+            isSystemPaused = true;
+            mainWindow.webContents.send('pause-reminder');
         }
     });
 
@@ -177,6 +192,11 @@ function initPowerManagement() {
             clearTimeout(lockTimer);
             lockTimer = null;
         }
+        // 通知渲染进程恢复计时器（从0开始）
+        if (mainWindow && !mainWindow.isDestroyed() && isSystemPaused) {
+            isSystemPaused = false;
+            mainWindow.webContents.send('resume-reminder');
+        }
     });
 
     // 系统锁屏
@@ -200,19 +220,53 @@ function initPowerManagement() {
             keyboardBlocker.stopBlocking();
         }
         // 通知渲染进程暂停计时器
-        if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow && !mainWindow.isDestroyed() && !isSystemPaused) {
+            isSystemPaused = true;
             mainWindow.webContents.send('pause-reminder');
         }
     });
 
     // 系统解锁
     powerMonitor.on('unlock-screen', () => {
-        console.log('[WindowManager] System screen unlocked');
+        console.log('[WindowManager] System screen unlocked, isSystemPaused:', isSystemPaused);
+        console.log('[WindowManager] Main window exists:', !!mainWindow, 'isDestroyed:', mainWindow?.isDestroyed(), 'isVisible:', mainWindow?.isVisible());
         // 通知渲染进程恢复计时器（从0开始）
-        if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow && !mainWindow.isDestroyed() && isSystemPaused) {
+            isSystemPaused = false;
             mainWindow.webContents.send('resume-reminder');
         }
     });
+
+    // 周期性检查系统空闲/锁屏状态（作为事件监听的补充）
+    let lastIdleState = 'unknown';
+    const idleCheckInterval = setInterval(() => {
+        try {
+            const idleState = powerMonitor.getSystemIdleState(30);
+
+            if (idleState === 'locked' && lastIdleState !== 'locked') {
+                console.log('[WindowManager] -> Transitioning to LOCKED state');
+                lastIdleState = 'locked';
+                if (mainWindow && !mainWindow.isDestroyed() && !isSystemPaused) {
+                    isSystemPaused = true;
+                    mainWindow.webContents.send('pause-reminder');
+                }
+            } else if (idleState !== 'locked' && lastIdleState === 'locked') {
+                console.log('[WindowManager] -> Transitioning to UNLOCKED state');
+                lastIdleState = idleState;
+                if (mainWindow && !mainWindow.isDestroyed() && isSystemPaused) {
+                    isSystemPaused = false;
+                    mainWindow.webContents.send('resume-reminder');
+                    console.log('[WindowManager] -> Sent resume-reminder');
+                }
+            } else if (idleState !== 'locked' && lastIdleState === 'unknown') {
+                // 初始化状态
+                lastIdleState = idleState;
+                console.log('[WindowManager] -> Initial idle state:', idleState);
+            }
+        } catch (e) {
+            console.error('[WindowManager] Idle check error:', e.message);
+        }
+    }, 60000); // 每60秒检查一次
 }
 
 // 创建锁屏窗口

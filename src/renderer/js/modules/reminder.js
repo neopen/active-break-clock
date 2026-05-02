@@ -530,6 +530,11 @@ const ReminderModule = (function () {
             const next = calculateNextReminder(now, config);
             nextReminderTimestamp = next.getTime();
             console.log('[REMINDER] Next reminder reset to:', nextReminderTimestamp, 'from:', now.getTime());
+
+            // 更新UI显示
+            if (typeof UIModule !== 'undefined' && UIModule.updateNextReminderDisplay) {
+                UIModule.updateNextReminderDisplay(nextReminderTimestamp);
+            }
         }
 
         // 重新启动检查循环
