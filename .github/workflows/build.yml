@@ -28,7 +28,11 @@ jobs:
         node-version: '20'
         cache: 'npm'
     
-    - run: npm install
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build source code
+      run: npm run build
     
     - name: Build macOS app (unsigned)
       if: matrix.platform == 'mac'
