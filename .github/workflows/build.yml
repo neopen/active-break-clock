@@ -37,9 +37,9 @@ jobs:
         path: |
           ~/.cache/electron
           ~/.cache/electron-builder
-        key: ${{ runner.os }}-electron-builder-${{ hashFiles('package-lock.json') }}
+        key: ${{ runner.os }}-electron-builder-v2-${{ hashFiles('package-lock.json') }}
         restore-keys: |
-          ${{ runner.os }}-electron-builder-
+          ${{ runner.os }}-electron-builder-v2-
 
     - name: Build source code
       run: npm run build
