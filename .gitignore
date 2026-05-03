@@ -15,7 +15,6 @@ temp/
 .svn/
 .env
 .pypirc
-package-lock.json
 bin/
 .settings/
 __pycache__/
