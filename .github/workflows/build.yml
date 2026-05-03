@@ -48,7 +48,7 @@ jobs:
       if: matrix.platform == 'mac'
       run: npx electron-builder --mac --publish never
       env:
-        ELECTRON_BUILDER_BINARIES_MIRROR: ""
+        electron_builder_binaries_mirror: "https://mirrors.huaweicloud.com/electron-builder-binaries/"
         CSC_IDENTITY_AUTO_DISCOVERY: false
         CSC_IDENTITY: ""
         CSC_FORCE_NO_SIGN: "true"
