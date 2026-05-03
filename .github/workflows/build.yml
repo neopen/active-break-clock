@@ -48,9 +48,8 @@ jobs:
       if: matrix.platform == 'mac'
       run: npx electron-builder --mac --publish never
       env:
-        ELECTRON_BUILDER_BINARIES_MIRROR: "https://mirrors.huaweicloud.com/electron-builder-binaries/"
-        # 同时也设置 Electron 自身下载的镜像，保持一致性
-        ELECTRON_MIRROR: "https://mirrors.huaweicloud.com/electron/"
+        ELECTRON_BUILDER_BINARIES_MIRROR: ""
+        ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/"
         CSC_IDENTITY_AUTO_DISCOVERY: false
         CSC_IDENTITY: ""
         CSC_FORCE_NO_SIGN: "true"
