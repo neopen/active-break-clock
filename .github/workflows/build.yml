@@ -46,7 +46,7 @@ jobs:
     
     - name: Build macOS app (unsigned)
       if: matrix.platform == 'mac'
-      run: npx electron-builder --mac --publish never
+      run: npx electron-builder --mac --publish never --x64
       env:
         ELECTRON_BUILDER_BINARIES_MIRROR: ""
         ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/"
