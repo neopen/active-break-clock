@@ -49,14 +49,14 @@
 
 ### 方式一：在线使用
 
-访问 [定时提醒 - 拒绝久坐](https://clock.pengline.cn/)，直接用浏览器打开即可使用。
+访问 [定时提醒 - 拒绝久坐](https://remind.helpoke.com)，直接用浏览器打开即可使用。
 
 > 建议使用 Chrome/Edge/Safari 等现代浏览器，可获得最佳体验。
 >
 
 ### 方式二：PWA 安装
 
-1. 访问 [定时提醒 - 拒绝久坐](https://clock.pengline.cn/)，用 Chrome/Edge 打开网页
+1. 访问 [定时提醒 - 拒绝久坐](https://remind.helpoke.com)，用 Chrome/Edge 打开网页
 
 2. 点击地址栏右侧的「安装」图标
 
